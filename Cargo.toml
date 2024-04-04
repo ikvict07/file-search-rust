@@ -1,4 +1,4 @@
-workspace = { members = ["src/file_system", "src/trie"] }
+workspace = { members = ["src/file_system", "src/image_to_text", "src/text_to_vec", "src/trie"] }
 [package]
 name = "file-search"
 version = "0.1.0"
