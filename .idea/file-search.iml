@@ -6,6 +6,8 @@
       <sourceFolder url="file://$MODULE_DIR$/src/data_base/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/file_system/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/trie/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/image_to_text/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/text_to_vec/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

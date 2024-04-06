@@ -1,7 +1,7 @@
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use std::sync::Arc;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ArcStr(pub Arc<str>);
 
 impl Serialize for ArcStr {
