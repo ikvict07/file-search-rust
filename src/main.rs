@@ -1,16 +1,18 @@
 use std::{fs, io};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
-use std::sync::{Arc, Mutex, Once};
+use std::sync::{Arc, Mutex, MutexGuard, Once};
 use dioxus::html::button;
 use dioxus::prelude::*;
+use serde::{Deserialize, Deserializer, Serialize};
 use file_system::{dir_walker};
 use trie::arc_str::ArcStr;
 // use trie::arc_str::ArcStr;
 use crate::dir_walker::DirWalker;
-
+use trie_rs::map::{Trie, TrieBuilder};
 
 // fn main() -> io::Result<()> {
 
@@ -66,35 +68,73 @@ fn main() {
     // launch the dioxus app in a webview
     dioxus_desktop::launch(app);
 }
-fn initialize_map() -> Arc<Mutex<HashMap<ArcStr, Vec<ArcStr>>>> {
-    let mut map: HashMap<ArcStr, Vec<ArcStr>> = HashMap::new();
+
+fn initialize_map() -> Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>> {
+    let mut map: HashMap<ArcStr, HashSet<ArcStr>> = HashMap::new();
     if let Ok(file) = File::open("map.bin") {
         let reader = BufReader::new(file);
         map = bincode::deserialize_from(reader).expect("Unable to deserialize map");
-        println!("Map loaded");
+        // println!("Map loaded");
     } else {
-        println!("Map not loaded");
+        // println!("Map not loaded");
     };
     Arc::new(Mutex::new(map))
 }
+
+fn initialize_trie(map: &Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>>) -> Arc<Mutex<SomeTrie>> {
+    let mut builder = TrieBuilder::new();
+    let map = map.lock().unwrap();
+    for (key, value) in map.iter() {
+        // println!("pushing {} into trie with value {:?}", key.0.to_string(), value);
+        builder.push(key.0.to_string(), value.clone());
+    }
+    let trie = builder.build();
+    let trie = Arc::new(Mutex::new(SomeTrie::Trie(trie)));
+    trie
+}
 // define a component that renders a div with the four buttons
+
+#[derive(Serialize, Deserialize)]
+struct SerializableTrie {
+    map: HashMap<Vec<u8>, u8>,
+}
+
+// impl From<Trie<u8>> for SerializableTrie {
+//     fn from(trie: Trie<u8>) -> Self {
+//         let map = trie.;
+//         SerializableTrie { map }
+//     }
+// }
+// 
+// impl From<SerializableTrie> for Trie<u8> {
+//     fn from(s: SerializableTrie) -> Self {
+//         s.map.into_iter().collect()
+//     }
+// }
+
+enum SomeTrie {
+    Trie(Trie<u8, HashSet<ArcStr>>),
+    TrieBuilder(TrieBuilder<u8, HashSet<ArcStr>>),
+}
+
 static INIT: Once = Once::new();
-static mut MAP: Option<Arc<Mutex<HashMap<ArcStr, Vec<ArcStr>>>>> = None;
+static mut MAP: Option<Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>>> = None;
+static mut TRIE: Option<Arc<Mutex<SomeTrie>>> = None;
 
 pub fn app(cx: Scope) -> Element {
     let active_window = use_state(cx, || ActiveWindow::StartWindow);
 
 
-
     unsafe {
         INIT.call_once(|| {
             MAP = Some(initialize_map());
+            TRIE = Some(initialize_trie(MAP.as_ref().unwrap()));
         });
     }
 
     let map = unsafe { MAP.as_ref().unwrap().clone() };
-    
-    
+    let trie = unsafe { TRIE.as_ref().unwrap().clone() };
+
     // let map = use_state(cx, || Arc::new(Mutex::new(HashMap::new())));
     cx.render(rsx! {
         div {
@@ -105,8 +145,8 @@ pub fn app(cx: Scope) -> Element {
         }
         match *active_window.get() {
             ActiveWindow::StartWindow => rsx! { start_window(cx, active_window) },
-            ActiveWindow::FileSearch => rsx! { file_search(cx, Arc::clone(&map)) },
-            ActiveWindow::FileIndex => rsx! { file_index(cx, Arc::clone(&map)) },
+            ActiveWindow::FileSearch => rsx! { file_search(cx, Arc::clone(&trie)) },
+            ActiveWindow::FileIndex => rsx! { file_index(cx, Arc::clone(&map), Arc::clone(&trie)) },
             ActiveWindow::ImageSearch => rsx! { image_search(cx) },
             ActiveWindow::ImageIndex => rsx! { image_index(cx) },
         }
@@ -122,7 +162,7 @@ fn start_window<'a>(cx: &'a Scoped<'a>, active_window: &'a UseState<ActiveWindow
 
 // define a component for each window
 
-pub fn file_search<'a>(cx: &'a dioxus::prelude::Scoped<'a>, map: Arc<Mutex<HashMap<ArcStr, Vec<ArcStr>>>>) -> Element<'a> {
+pub fn file_search<'a>(cx: &'a Scoped<'a>, trie: Arc<Mutex<SomeTrie>>) -> Element<'a> {
     let input_value = use_state(&cx, || "".to_string());
     let found_files = use_state(&cx, || Vec::new());
     let files: &Vec<String> = found_files.get();
@@ -138,10 +178,23 @@ pub fn file_search<'a>(cx: &'a dioxus::prelude::Scoped<'a>, map: Arc<Mutex<HashM
             }
             button {
                 onclick: move |_| {
+                    // println!("Searching for files");
                     let dir = input_value.get().clone();
-                    let mut map = Arc::clone(&map);
-                    let files = search_files(dir, &mut map);
-                    found_files.set(files);
+                    if let SomeTrie::Trie(trie) = trie.lock().unwrap().deref() {
+                        let found_names = trie.predictive_search(dir.clone().as_bytes());
+                        
+                        let mut temp= Vec::new();
+                        for (name, set) in found_names
+                            {
+                                for file in set {
+                                    temp.push(String::from_utf8(name.clone()).unwrap() + ": " + &*file.0.to_string());
+                                }
+                            }
+                        found_files.set(temp);
+                        
+                    } else {
+                        // println!("Trie not found");
+                    }
                 },
                 "Поиск файлов"
             }
@@ -154,23 +207,8 @@ pub fn file_search<'a>(cx: &'a dioxus::prelude::Scoped<'a>, map: Arc<Mutex<HashM
     })
 }
 
-fn search_files(filename: String, map: &mut Arc<Mutex<HashMap<ArcStr, Vec<ArcStr>>>>) -> Vec<String> {
-    println!("Searching for file: {}", filename);
-    let mut files = Vec::new();
-    if let Ok(map) = map.lock() {
-        if let Some(paths) = map.get(&ArcStr(Arc::from(filename))) {
-            for path in paths {
-                println!("{}", path.0);
-                files.push(path.0.to_string());
-            }
-        } else {
-            println!("File not found");
-        }
-    }
-    files
-}
 
-pub fn file_index<'a>(cx: &'a dioxus::prelude::Scoped<'a>, map: Arc<Mutex<HashMap<ArcStr, std::vec::Vec<ArcStr>>>>) -> Element<'a> {
+pub fn file_index<'a>(cx: &'a Scoped<'a>, mut map: Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>>, mut trie: Arc<Mutex<SomeTrie>>) -> Element<'a> {
     let input_value = use_state(&cx, || "".to_string());
 
     cx.render(rsx! {
@@ -186,8 +224,7 @@ pub fn file_index<'a>(cx: &'a dioxus::prelude::Scoped<'a>, map: Arc<Mutex<HashMa
             button {
                 onclick: move |_| {
                     let dir = input_value.get().clone();
-                    let mut map = Arc::clone(&map);
-                    index_directory(dir, &mut map);
+                    index_directory(dir, &mut map, &mut trie);
                 },
                 "Индексировать директорию"
             }
@@ -195,7 +232,7 @@ pub fn file_index<'a>(cx: &'a dioxus::prelude::Scoped<'a>, map: Arc<Mutex<HashMa
     })
 }
 
-fn index_directory(dir: String, map: &mut Arc<Mutex<HashMap<ArcStr, Vec<ArcStr>>>>) {
+fn index_directory(dir: String, map: &Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>>, trie: &mut Arc<Mutex<SomeTrie>>) {
     println!("Indexing directory: {}", dir);
     let map_for_closure = Arc::clone(map);
     if let Ok(mut it) = DirWalker::new(&dir) {
@@ -204,20 +241,35 @@ fn index_directory(dir: String, map: &mut Arc<Mutex<HashMap<ArcStr, Vec<ArcStr>>
             let filename = path_string.file_name().unwrap().to_str().unwrap().to_string();
             let mut map = map_for_closure.lock().unwrap();
             if !map.contains_key(&ArcStr(Arc::from(filename.clone()))) {
-                let mut v = Vec::new();
-                v.push(ArcStr(Arc::from(path.to_string())));
+                let mut v = HashSet::new();
+                v.insert(ArcStr(Arc::from(path.to_string())));
                 map.insert(ArcStr(Arc::from(filename.clone())), v);
             } else {
-                map.get_mut(&ArcStr(Arc::from(filename.clone()))).unwrap().push(ArcStr(Arc::from(path.to_string())));
+                map.get_mut(&ArcStr(Arc::from(filename.clone()))).unwrap().insert(ArcStr(Arc::from(path.to_string())));
             }
         });
-        println!("Indexing complete");
+
         let file = File::create("map.bin").expect("Unable to create file");
         let writer = BufWriter::new(file);
+
+        let trie_ = build_trie(Arc::clone(map));
+
+        let mut trie_guard = trie.lock().unwrap();
+        *trie_guard = trie_;
+
         bincode::serialize_into(writer, &*map.lock().unwrap()).expect("Unable to serialize map");
+        println!("Directory indexed");
     }
 }
-
+fn build_trie(map: Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>>) -> SomeTrie {
+    let mut builder = TrieBuilder::new();
+    let map_lock = map.lock().unwrap();
+    for (key, value) in map_lock.iter() {
+        builder.push(key.0.to_string(), value.clone());
+    }
+    let trie_ = builder.build();
+    SomeTrie::Trie(trie_)
+}
 pub fn image_search(cx: Scope) -> Element {
     cx.render(rsx! {
         div {
@@ -234,3 +286,4 @@ pub fn image_index(cx: Scope) -> Element {
         }
     })
 }
+
