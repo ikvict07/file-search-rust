@@ -937,6 +937,7 @@ dependencies = [
  "file_system",
  "image_to_text",
  "num_cpus",
+ "once_cell",
  "serde",
  "serde_json",
  "text_to_vec",
