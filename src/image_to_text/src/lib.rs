@@ -1,3 +1,5 @@
+pub mod processor;
+
 use std::error::Error;
 use futures::future::join_all;
 use std::fs;
@@ -11,7 +13,9 @@ use reqwest::Response;
 use serde_json::{json, Value};
 use yup_oauth2 as oauth2;
 
-pub async fn apply_for_labels(
+
+
+pub async fn apply_for_labels (
     dir: &str,
     callback: Arc<Mutex<dyn Fn(Value) -> Result<(), Box<dyn Error>> + Send + 'static>>,
 ) -> Result<(), Box<dyn Error>> {
@@ -29,13 +33,14 @@ pub async fn apply_for_labels(
         .await
         .expect("auth.token");
 
-    let client = reqwest::Client::new();
-
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", token.token().unwrap()))?);
     let callback = Arc::new(callback);
     let mut tasks = Vec::new();
+
+    let client = reqwest::Client::new();
+
 
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
@@ -96,7 +101,7 @@ pub async fn apply_for_labels(
 }
 
 
-pub async fn apply_for_caption(
+pub async fn apply_for_caption (
     dir: &str,
     callback: Arc<Mutex<dyn Fn(Value) -> Result<(), Box<dyn Error>> + Send + 'static>>,
 ) -> Result<(), Box<dyn Error>>
@@ -115,10 +120,8 @@ pub async fn apply_for_caption(
         .await
         .expect("auth.token");
 
-    let mut file = File::open(r"C:\Users\ikvict\OneDrive - Slovenská technická univerzita v Bratislave\фотки с парка\img_1375jpg_52488246770_o.jpg").expect("Unable to open the file");
     let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).expect("Unable to read the file");
-    let encoded = encode(&buffer);
+
 
     let client = reqwest::Client::new();
 
@@ -134,7 +137,7 @@ pub async fn apply_for_caption(
         let path = entry.path();
         if path.is_file() {
             let mut file = File::open(path)?;
-            let mut buffer = Vec::new();
+            buffer = Vec::new();
             file.read_to_end(&mut buffer)?;
             let encoded = encode(&buffer);
 
@@ -181,6 +184,24 @@ pub async fn apply_for_caption(
     }
 
     join_all(tasks).await; // Дожидаемся выполнения всех задач
+
+    Ok(())
+}
+
+use image::{GenericImageView, GenericImage, imageops::FilterType};
+
+fn resize_image(path: &str) -> image::ImageResult<()> {
+    let img = image::open(path)?;
+
+    let (width, height) = img.dimensions();
+    let new_dimensions = if width > height {
+        (600, 600 * height / width)
+    } else {
+        (600 * width / height, 600)
+    };
+
+    let new_img = img.resize_exact(new_dimensions.0, new_dimensions.1, FilterType::Nearest);
+    new_img.save("resized_image.jpg")?;
 
     Ok(())
 }

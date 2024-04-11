@@ -15,6 +15,7 @@ use trie::arc_str::ArcStr;
 use crate::dir_walker::DirWalker;
 use trie_rs::{Trie, TrieBuilder};
 use once_cell::sync::Lazy;
+use serde_json::Value;
 
 // fn main() -> io::Result<()> {
 
@@ -86,7 +87,7 @@ fn initialize_map() -> Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>> {
 fn initialize_trie(map: &Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>>) -> Arc<Mutex<SomeTrie>> {
     let mut builder = TrieBuilder::new();
     let map = map.lock().unwrap();
-    for (key, value) in map.iter() {
+    for key in map.keys() {
         // println!("pushing {} into trie with value {:?}", key.0.to_string(), value);
         builder.push(key.0.to_string());
     }
@@ -319,16 +320,104 @@ pub fn image_search(cx: Scope) -> Element {
     cx.render(rsx! {
         div {
             h1 { "Image Search Window" }
+            button {
+
+            }
         }
     })
 }
 
 pub fn image_index(cx: Scope) -> Element {
+    let input_value = use_state(&cx, || "".to_string());
+
     cx.render(rsx! {
         div {
-            h1 { "Image Index Window" }
-            // Add your content here
+            h1 { "Image index window" }
+            input {
+                value: "{input_value}",
+                oninput: move |event| {
+                    let input = &event.value;
+                    input_value.set(input.to_string());
+                }
+            }
+            button {
+                onclick: move |_| {
+                    let dir = input_value.get().clone();
+                    tokio::spawn(async move {
+                        index_images(dir).await;
+                    });
+                },
+                "Индексировать директорию"
+            }
         }
     })
 }
+use std::error::Error;
+use db::database::Save;
+use image_to_text::{apply_for_caption, apply_for_labels};
+use image_to_text::processor::ImageProcessor;
 
+fn handle_response(response: Value) -> Result<(), Box<dyn Error>> {
+    println!("Caption: {:?}", response);
+    Ok(())
+}
+fn handle_response_label(response: Value) -> Result<(), Box<dyn Error>> {
+    if let Some(responses) = response.get("responses") {
+        if responses.is_array() {
+            let responses = responses.as_array().unwrap();
+            for (i, response) in responses.iter().enumerate() {
+                println!("Response {}: ", i + 1);
+                if let Some(label_annotations) = response.get("labelAnnotations") {
+                    if label_annotations.is_array() {
+                        let label_annotations = label_annotations.as_array().unwrap();
+                        for (j, label_annotation) in label_annotations.iter().enumerate() {
+                            let description = label_annotation.get("description").unwrap().as_str().unwrap();
+                            let mid = label_annotation.get("mid").unwrap().as_str().unwrap();
+                            let score = label_annotation.get("score").unwrap().as_f64().unwrap();
+                            let topicality = label_annotation.get("topicality").unwrap().as_f64().unwrap();
+                            println!("Label Annotation {}: Description: {}, Mid: {}, Score: {}, Topicality: {}", j + 1, description, mid, score, topicality);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+pub async fn index_images(dir: String) {
+    // let secret = String::from("client_secret.json");
+    // let label_processor = ImageProcessor::new_label(dir.clone(), secret.clone());
+    // let caption_processor = ImageProcessor::new_caption(dir, secret, 3);
+    // let label_callback = Arc::new(Mutex::new(handle_response_label));
+    // let caption_callback = Arc::new(Mutex::new(handle_response));
+    // let label_callback_clone = label_callback.clone();
+    // let caption_callback_clone = caption_callback.clone();
+    //
+    // let label_task = tokio::spawn(async move {
+    //     if let ImageProcessor::Label(label_processor) = label_processor.await {
+    //         label_processor.process(label_callback_clone).await.unwrap();
+    //     }
+    // });
+    // let caption_task = tokio::spawn(async move {
+    //     if let ImageProcessor::Caption(caption_processor) = caption_processor.await {
+    //         caption_processor.process(caption_callback_clone).await.unwrap();
+    //     }
+    // });
+    // let _ = tokio::join!(label_task, caption_task);
+
+    let db = db::database::Database::new();
+    let vector = vec![2.0, 3.1, 4.3];
+    let semantic_vector = db::semantic_vector::SemanticVec::from_vec(vector);
+
+    let mut image = db::image::Image::new(String::from("path3"), String::from("title2"));
+    image.set_semantic_vector(semantic_vector);
+    if let Some(ref conn) = db.connection {
+        image.save(conn);
+    }
+
+    let mut test = db.select_image_by_path("path3").unwrap();
+
+    println!("Image: {:?}", test);
+
+    db.close();
+}
