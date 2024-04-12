@@ -175,17 +175,14 @@ fn start_window<'a>(cx: &'a Scoped<'a>, active_window: &'a UseState<ActiveWindow
 fn enable_prefix_search() {
     unsafe {
         if let Some(is_enabled) = IS_PREFIX_SEARCH_ENABLED.as_ref() {
-            if *is_enabled.lock().unwrap() {
-            } else {
+            if *is_enabled.lock().unwrap() {} else {
                 println!("Initializing prefix search");
                 TRIE = Some(initialize_trie(MAP.as_ref().unwrap()));
                 IS_PREFIX_SEARCH_ENABLED = Some(Arc::from(Mutex::from(true)));
                 println!("Prefix search enabled");
                 println!("Trie: {:?}", IS_PREFIX_SEARCH_ENABLED.as_ref().unwrap().lock().unwrap().deref());
             }
-        } else {
-
-        }
+        } else {}
     }
 }
 
@@ -352,8 +349,11 @@ pub fn image_index(cx: Scope) -> Element {
         }
     })
 }
+
 use std::error::Error;
+use std::mem::forget;
 use db::database::Save;
+use db::image::Image;
 use image_to_text::{apply_for_caption, apply_for_labels};
 use image_to_text::processor::ImageProcessor;
 
@@ -361,6 +361,7 @@ fn handle_response(response: Value) -> Result<(), Box<dyn Error>> {
     println!("Caption: {:?}", response);
     Ok(())
 }
+
 fn handle_response_label(response: Value) -> Result<(), Box<dyn Error>> {
     if let Some(responses) = response.get("responses") {
         if responses.is_array() {
@@ -384,6 +385,7 @@ fn handle_response_label(response: Value) -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
+
 pub async fn index_images(dir: String) {
     // let secret = String::from("client_secret.json");
     // let label_processor = ImageProcessor::new_label(dir.clone(), secret.clone());
@@ -409,14 +411,38 @@ pub async fn index_images(dir: String) {
     let vector = vec![2.0, 3.1, 4.3];
     let semantic_vector = db::semantic_vector::SemanticVec::from_vec(vector);
 
-    let mut image = db::image::Image::new(String::from("path3"), String::from("title2"));
+
+    if db.is_err() {
+        return;
+    }
+    let db = db.unwrap();
+
+    let mut image = Image::new(String::from("path4"), String::from("title2"));
+
+    let conn = db.connection.as_ref();
+    if conn.is_none() {
+        return;
+    }
+    println!("Db");
+    let conn = conn.unwrap();
     image.set_semantic_vector(semantic_vector);
-    if let Some(ref conn) = db.connection {
-        image.save(conn);
+    match image.save(conn) {
+        Ok(_) => {}
+        Err(e) => {
+            println!("Error: {:?}", e);
+        }
     }
 
-    let mut test = db.select_image_by_path("path3").unwrap();
+    let test = db.select_image_by_path("path4");
 
+    match test {
+        None => {
+            db.close();
+            return;
+        }
+        Some(_) => {}
+    }
+    let test = test.unwrap();
     println!("Image: {:?}", test);
 
     db.close();

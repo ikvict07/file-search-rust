@@ -11,18 +11,24 @@ pub struct Image {
 
 impl crate::database::Save for Image
 {
-    fn save(&mut self, connection: &Connection) {
-        connection
+    fn save(&mut self, connection: &Connection) -> Result<u32, rusqlite::Error> {
+        match connection
             .execute(
                 "INSERT INTO images (path, title) VALUES (?1, ?2)",
                 &[&self.path, &self.title],
-            )
-            .expect("INSERT INTO images");
+            ) {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(e);
+            }
+        }
+
         self.id = connection.last_insert_rowid() as u32;
 
         println!("Image save");
         self.set_semantic_vector(self.semantic_vector.clone());
         self.semantic_vector.save(connection);
+        Ok(connection.last_insert_rowid() as u32)
     }
 }
 
@@ -42,7 +48,6 @@ impl Image {
             semantic_vector: SemanticVec::new(),
         }
     }
-
 }
 
 
