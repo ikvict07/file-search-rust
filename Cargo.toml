@@ -1,4 +1,4 @@
-workspace = { members = [ "src/db","src/file_system", "src/image_to_text", "src/text_to_vec", "src/trie"] }
+workspace = { members = [ "src/app_props", "src/db","src/file_system", "src/image_to_text", "src/text_to_vec", "src/trie"] }
 [package]
 name = "file-search"
 version = "0.1.0"
@@ -22,3 +22,4 @@ trie-rs = "0.2.0"
 once_cell = "1.19.0"
 rayon = "1.5.1"
 db = { path = "src/db" }
+app_props = { path = "src/app_props" }
