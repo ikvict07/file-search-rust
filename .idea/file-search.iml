@@ -10,6 +10,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src/text_to_vec/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/db/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/app_props/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/img_azure/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
