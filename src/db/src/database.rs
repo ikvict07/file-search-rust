@@ -52,6 +52,7 @@ impl Database {
 
 impl Drop for Database {
     fn drop(&mut self) {
+        self.connection.take().unwrap().close().expect("Connection::close");
         panic!("Should be closed explicitly with close() method");
     }
 }
