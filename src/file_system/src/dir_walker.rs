@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use governor::{Quota, RateLimiter};
 use std::num::NonZeroU32;
+use std::path::{Path, PathBuf};
 use futures::stream;
 use futures::stream::StreamExt;
 use serde_json::Value;
@@ -121,13 +122,13 @@ impl DirWalker {
 
 
 
-    pub async fn send_requests_for_dir_apply(&self, requests_per_sec: u32, f: impl Fn(Result<AzureResponse, ErrorKind>)) -> Result<(), Box<dyn Error>>{
+    pub async fn send_requests_for_dir_apply(&self, requests_per_sec: u32, f: impl Fn(Result<AzureResponse, ErrorKind>, PathBuf)) -> Result<(), Box<dyn Error>>{
 
         let dir = self.dirs.lock().unwrap().pop().unwrap();
 
-        let mut dir_entries = tokio::fs::read_dir(dir).await?;
+        let dir_entries = tokio::fs::read_dir(dir).await?;
 
-        // Convert the ReadDir to a Stream
+
         let dir_entries_stream = stream::unfold(dir_entries, |mut dir_entries| async {
             match dir_entries.next_entry().await {
                 Ok(Some(entry)) => Some((entry, dir_entries)),
@@ -151,7 +152,6 @@ impl DirWalker {
                 limiter.until_ready().await;
                 let path = entry.path();
                 if path.is_file() {
-                    // Wait until a permit is available
 
                     let mut request = AzureRequest::new("4d7bd39a70c249eebd19f5b8d62f5d7b", vec!["tags", "caption"]);
                     request.set_img(path.to_str().unwrap()).unwrap();
@@ -159,7 +159,7 @@ impl DirWalker {
                     let response= request.send_request().await.unwrap();
                     let response_copy = response.json::<Value>().await.unwrap();
                     let response_struct: Result<AzureResponse, ErrorKind> = AzureResponse::try_from(response_copy.clone());
-                    callback(response_struct);
+                    callback(response_struct, path.clone());
                 }
             }
         }).await;

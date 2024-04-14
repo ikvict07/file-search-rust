@@ -1,8 +1,10 @@
 [package]
-name = "text_to_vec"
+name = "vectorization"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rust2vec = "0.5.2"
+ndarray = "0.15.6"

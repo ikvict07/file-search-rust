@@ -1,4 +1,4 @@
-workspace = { members = [ "src/app_props", "src/db","src/file_system", "src/image_to_text", "src/img_azure", "src/text_to_vec", "src/trie"] }
+workspace = { members = [ "src/app_props", "src/db","src/file_system", "src/img_azure", "src/trie", "src/vectorization"] }
 [package]
 name = "file-search"
 version = "0.1.0"
@@ -14,8 +14,6 @@ serde = { version = "1.0", features = ["derive"] }
 bincode = "1.3.3"
 dioxus = { version = "0.4.0" }
 dioxus-desktop = { version = "0.4.0" }
-image_to_text = { path = "src/image_to_text" }
-text_to_vec = { path = "src/text_to_vec" }
 tokio = "1.37.0"
 serde_json = "1.0.115"
 trie-rs = "0.2.0"
@@ -24,3 +22,4 @@ rayon = "1.5.1"
 db = { path = "src/db" }
 app_props = { path = "src/app_props" }
 img_azure = { path = "src/img_azure" }
+vectorization = { path = "src/vectorization" }

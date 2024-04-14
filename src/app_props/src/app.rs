@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use trie_rs::{Trie, TrieBuilder};
 use trie::arc_str::ArcStr;
-
+use vectorization::Embedding;
 pub enum SomeTrie {
     Trie(Trie<u8>),
     TrieBuilder(TrieBuilder<u8>),
@@ -17,10 +17,16 @@ pub struct App {
     pub map: Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>>,
     pub trie: Arc<Mutex<SomeTrie>>,
     pub is_prefix_search_enabled: Arc<Mutex<bool>>,
+    pub embeddings: Arc<Mutex<Embedding>>,
 }
 
 impl App {}
-
+pub fn initialize_embeddings() -> Arc<Mutex<Embedding>> {
+    let mut embeddings = Embedding::new();
+    embeddings.get_embeddings(r"C:\Users\ikvict\RustroverProjects\file-search\glove.6B.300d.txt");
+    let embeddings = Arc::new(Mutex::new(embeddings));
+    embeddings
+}
 pub fn initialize_map() -> Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>> {
     let mut map: HashMap<ArcStr, HashSet<ArcStr>> = HashMap::new();
     if let Ok(file) = File::open("map.bin") {
@@ -53,8 +59,8 @@ pub fn build_trie(map: Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>>) -> SomeTrie
     SomeTrie::Trie(trie_)
 }
 
-pub fn enable_prefix_search(app: &Rc<RefCell<App>>) {
-    let app = &mut *app.borrow_mut();
+pub fn enable_prefix_search(app: &Arc<Mutex<App>>) {
+    let app = &mut *app.lock().unwrap();
 
     let is_enabled = &mut app.is_prefix_search_enabled;
     if !*is_enabled.lock().unwrap() {
