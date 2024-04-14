@@ -4,7 +4,7 @@ use rusqlite::Connection;
 pub struct SemanticVectorElement {
     pub id: u32,
     pub image_id: u32,
-    pub value: f64,
+    pub value: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -45,7 +45,7 @@ impl crate::database::Save for SemanticVec
 }
 
 impl SemanticVectorElement {
-    pub fn new(image_id: u32, value: f64) -> SemanticVectorElement {
+    pub fn new(image_id: u32, value: f32) -> SemanticVectorElement {
         SemanticVectorElement {
             id: 0,
             image_id,
@@ -63,7 +63,7 @@ impl SemanticVec {
         self.0.push(element);
     }
 
-    pub fn from_vec(vec: Vec<f64>) -> SemanticVec {
+    pub fn from_vec(vec: Vec<f32>) -> SemanticVec {
         let mut semantic_vector = SemanticVec::new();
         for value in vec {
             semantic_vector.push(SemanticVectorElement::new(0, value));
