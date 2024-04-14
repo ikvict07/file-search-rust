@@ -1,10 +1,10 @@
-
 use std::mem::forget;
 use rusqlite::{Connection, ErrorCode};
 use crate::image::Image;
 use crate::semantic_vector::{SemanticVec, SemanticVectorElement};
 use fallible_iterator::FallibleIterator;
 
+#[derive(Debug)]
 pub struct Database {
     pub connection: Option<Connection>,
 }
@@ -142,7 +142,7 @@ impl Database {
 
             let id: u32 = row.get(0).unwrap();
             let image_id: u32 = row.get(1).unwrap();
-            let value: f64 = row.get(2).unwrap();
+            let value: f32 = row.get(2).unwrap();
             Ok(SemanticVectorElement {
                 id,
                 image_id,
@@ -176,5 +176,35 @@ impl Database {
         let mut rows = rows.unwrap();
 
         Ok(rows.next().is_ok())
+    }
+
+    pub fn select_all_images(&self) -> Vec<u32> {
+        let mut statement = self.connection.as_ref().unwrap()
+            .prepare("SELECT id FROM images")
+            .expect("pISUN");
+        let mut rows = statement.query(());
+        if rows.is_err() {
+            return vec![];
+        }
+        let mut rows = rows.unwrap();
+
+
+        let mut result = vec![];
+
+        while let Ok(row) = rows.next() {
+            if row.is_none() {
+                break;
+            }
+            let row = row.unwrap();
+
+            let image_id: Result<u32, rusqlite::Error> = row.get(0);
+            if image_id.is_err() {
+                break;
+            }
+            let image_id = image_id.unwrap();
+
+            result.push(image_id)
+        }
+        result
     }
 }

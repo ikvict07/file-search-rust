@@ -1,5 +1,5 @@
 use std::{fs::File, io::{BufReader, BufWriter}, path::Path};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -15,10 +15,10 @@ use std::error::Error;
 use trie::arc_str::ArcStr;
 use dir_walker::DirWalker;
 use db::{database::Save, image::Image};
-use image_to_text::{apply_for_caption, apply_for_labels, processor::ImageProcessor};
 use app_props::app::*;
-
+use vectorization::*;
 use std::cell::{RefCell, RefMut};
+use db::semantic_vector::SemanticVec;
 
 // Important we rewrite import from dioxus
 #[derive(Clone)]
@@ -36,8 +36,9 @@ fn main() {
         map: map,
         trie: Arc::new(Mutex::new(SomeTrie::TrieBuilder(TrieBuilder::new()))),
         is_prefix_search_enabled: Arc::new(Mutex::new(false)),
+        embeddings: initialize_embeddings(),
     };
-    let app_props = Rc::new(RefCell::new(app_props));
+    let app_props = Arc::new(Mutex::new(app_props));
     dioxus_desktop::launch_with_props(
         app,
         app_props,
@@ -45,7 +46,7 @@ fn main() {
 }
 
 
-pub fn app(cx: Scope<Rc<RefCell<App>>>) -> Element {
+pub fn app(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let active_window = use_state(cx, || ActiveWindow::StartWindow);
 
     cx.render(rsx! {
@@ -66,7 +67,7 @@ pub fn app(cx: Scope<Rc<RefCell<App>>>) -> Element {
     })
 }
 
-fn start_window<'a>(cx: Scope<'a, Rc<RefCell<App>>>, active_window: &'a UseState<ActiveWindow>) -> Element<'a> {
+fn start_window<'a>(cx: Scope<'a, Arc<Mutex<App>>>, active_window: &'a UseState<ActiveWindow>) -> Element<'a> {
     cx.render(rsx! {
         div {
             h1 { "Start Window" }
@@ -76,13 +77,13 @@ fn start_window<'a>(cx: Scope<'a, Rc<RefCell<App>>>, active_window: &'a UseState
 }
 
 
-pub fn file_search(cx: Scope<Rc<RefCell<App>>>) -> Element {
+pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
     let found_files = use_state(&cx, || Vec::new());
     let files: &Vec<String> = found_files.get();
 
 
-    let app = cx.props.borrow_mut();
+    let app = cx.props.lock().unwrap();
 
     cx.render(rsx! {
         div {
@@ -137,9 +138,9 @@ pub fn file_search(cx: Scope<Rc<RefCell<App>>>) -> Element {
 }
 
 
-pub fn file_index(cx: Scope<Rc<RefCell<App>>>) -> Element {
+pub fn file_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
-    let mut app = cx.props.clone();
+    let mut app = cx.props.lock().unwrap();
     cx.render(rsx! {
         div {
             h1 { "Окно индексации файлов" }
@@ -153,7 +154,7 @@ pub fn file_index(cx: Scope<Rc<RefCell<App>>>) -> Element {
             button {
                 onclick: move |_| {
                     let dir = input_value.get().clone();
-                    index_directory(dir, app.borrow_mut());
+                    index_directory(dir, &mut *app);;
                 },
                 "Индексировать директорию"
             }
@@ -161,7 +162,7 @@ pub fn file_index(cx: Scope<Rc<RefCell<App>>>) -> Element {
     })
 }
 
-fn index_directory(dir: String, app: RefMut<App>) {
+fn index_directory(dir: String, app: &mut App) {
     println!("Indexing directory: {}", dir);
     let map_for_closure = Arc::clone(&app.map);
     if let Ok(mut it) = DirWalker::new(&dir) {
@@ -192,7 +193,7 @@ fn index_directory(dir: String, app: RefMut<App>) {
     }
 }
 
-pub fn image_search(cx: Scope<Rc<RefCell<App>>>) -> Element {
+pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     cx.render(rsx! {
         div {
             h1 { "Image Search Window" }
@@ -203,9 +204,9 @@ pub fn image_search(cx: Scope<Rc<RefCell<App>>>) -> Element {
     })
 }
 
-pub fn image_index(cx: Scope<Rc<RefCell<App>>>) -> Element {
+pub fn image_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
-
+    let app = cx.props.clone();
     cx.render(rsx! {
         div {
             h1 { "Image index window" }
@@ -219,8 +220,9 @@ pub fn image_index(cx: Scope<Rc<RefCell<App>>>) -> Element {
             button {
                 onclick: move |_| {
                     let dir = input_value.get().clone();
+                    let app_clone = app.clone();
                     tokio::spawn(async move {
-                        index_images(dir).await;
+                        index_images(dir, app_clone).await;
                     });
                 },
                 "Индексировать директорию"
@@ -259,7 +261,7 @@ fn handle_response_label(response: Value) -> Result<(), Box<dyn Error>> {
 }
 
 
-pub async fn index_images(dir: String) {
+pub async  fn index_images<'a> (dir: String, app: Arc<Mutex<App>>) {
     // let secret = String::from("client_secret.json");
     // let label_processor = ImageProcessor::new_label(dir.clone(), secret.clone());
     // let caption_processor = ImageProcessor::new_caption(dir, secret, 3);
@@ -319,10 +321,59 @@ pub async fn index_images(dir: String) {
     // println!("Image: {:?}", test);
     //
     // db.close();
-    let walker = DirWalker::new(&dir).unwrap();
-    walker.send_requests_for_dir_apply(10, |resp| {
-        if resp.is_err() {
-            println!("Error: {:?}", resp.err().unwrap());
+    // let walker = DirWalker::new(&dir).unwrap();
+    // let mut embeddings = Embedding::new();
+    // embeddings.get_embeddings(r"C:\Users\ikvict\RustroverProjects\file-search\glove.6B.300d.txt");
+    // let embeddings = embeddings;
+    // let db = db::database::Database::new().unwrap();
+    // let db_arc = Arc::new(Mutex::new(db));
+    // let db_for_closure = Arc::clone(&db_arc);
+    // walker.send_requests_for_dir_apply(10, |resp, path| {
+    //     let db = db_for_closure.lock().unwrap();
+    //     match resp {
+    //         Ok(response) => {
+    //             let semantic_vector = SemanticVec::from_vec(embeddings.average_vector(&response.caption));
+    //             let mut image = Image::new(path.to_str().unwrap().to_string(), path.file_name().unwrap().to_str().unwrap().to_string());
+    //             let conn = db.connection.as_ref().unwrap();
+    //             image.set_semantic_vector(semantic_vector);
+    //             match image.save(conn) {
+    //                 Ok(_) => {}
+    //                 Err(e) => {
+    //                     println!("Error: {:?}", e);
+    //                 }
+    //             }
+    //         }
+    //         Err(e) => {
+    //             println!("Error: {:?}", e);
+    //         }
+    //     }
+    // }).await.expect("Couldnt open dir");
+    // db.close();
+    let embeddings = app.lock().unwrap().embeddings.clone();
+    let db = db::database::Database::new().unwrap();
+    let embeddings = embeddings.lock().unwrap();
+
+    let res = embeddings.average_vector(dir.as_str());
+
+    let ids = db.select_all_images();
+    let mut results = Vec::new();
+    println!("{:?}", ids);
+    let time = std::time::Instant::now();
+    for id in ids {
+        let mut statement = db.connection.as_ref().unwrap().prepare("SELECT value FROM semantic_vectors WHERE image_id = ?1").unwrap();
+        let mut rows = statement.query(&[&id]).unwrap();
+        let mut vec = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            let value: f32 = row.get(0).unwrap();
+            vec.push(value);
         }
-    }).await.expect("Couldnt open dir");
+        results.push((id, Embedding::cosine_similarity(&res, &vec)));
+    }
+
+    results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    for (id, value) in results {
+        println!("Id: {}, Value: {}", id, value);
+    }
+    println!("Time: {:?}", time.elapsed());
+    db.close();
 }
