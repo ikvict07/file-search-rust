@@ -11,7 +11,7 @@ pub struct Image {
 
 impl crate::database::Save for Image
 {
-    fn save(&mut self, connection: &Connection) -> Result<u32, rusqlite::Error> {
+    fn save(&mut self, connection: &mut Connection) -> Result<u32, rusqlite::Error> {
         match connection
             .execute(
                 "INSERT INTO images (path, title) VALUES (?1, ?2)",

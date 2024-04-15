@@ -12,9 +12,10 @@ pub struct SemanticVec(pub Vec<SemanticVectorElement>);
 
 impl crate::database::Save for Vec<SemanticVectorElement>
 {
-    fn save(&mut self, connection: &Connection) -> Result<u32, rusqlite::Error> {
-        for ( value) in self.iter_mut() {
-            match connection.execute(
+    fn save(&mut self, connection: &mut Connection) -> Result<u32, rusqlite::Error> {
+        let tx = connection.transaction().unwrap();
+        for value in self.iter_mut() {
+            match tx.execute(
                 "INSERT INTO semantic_vectors (image_id, value) VALUES (?1, ?2)",
                 (value.image_id, value.value),
             ) {
@@ -23,15 +24,16 @@ impl crate::database::Save for Vec<SemanticVectorElement>
                     return Err(e);
                 }
             }
-            value.id = connection.last_insert_rowid() as u32;
+            value.id = tx.last_insert_rowid() as u32;
         }
+        tx.commit()?;
         Ok(connection.last_insert_rowid() as u32)
     }
 }
 
 impl crate::database::Save for SemanticVec
 {
-    fn save(&mut self, connection: &Connection) -> Result<u32, rusqlite::Error> {
+    fn save(&mut self, connection: &mut Connection) -> Result<u32, rusqlite::Error> {
         println!("SemanticVec save");
         match self.0.save(connection) {
             Ok(_) => { Ok(connection.last_insert_rowid() as u32) }

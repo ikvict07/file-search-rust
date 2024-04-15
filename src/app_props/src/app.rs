@@ -6,6 +6,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use trie_rs::{Trie, TrieBuilder};
+use db::database::Database;
 use trie::arc_str::ArcStr;
 use vectorization::Embedding;
 pub enum SomeTrie {
@@ -18,13 +19,23 @@ pub struct App {
     pub trie: Arc<Mutex<SomeTrie>>,
     pub is_prefix_search_enabled: Arc<Mutex<bool>>,
     pub embeddings: Arc<Mutex<Embedding>>,
+    pub db: Arc<Mutex<Option<Database>>>
 }
 
 impl App {}
 pub fn initialize_embeddings(app: Arc<Mutex<App>>) {
-    let app = app.lock().unwrap();
-    let mut embeddings = app.embeddings.lock().unwrap();
-    embeddings.get_embeddings(r"C:\Users\ikvict\RustroverProjects\file-search\glove.6B.300d.txt");
+    let mut app_clone = app.clone();
+    {
+        let mut app = app.lock().unwrap();
+        let mut embeddings = app.embeddings.lock().unwrap();
+        embeddings.get_embeddings(r"C:\Users\ikvict\RustroverProjects\file-search\glove.6B.300d.txt");
+        print!("Embeddings initialized\n");
+    }
+    {
+        let mut app = app_clone.lock().unwrap();
+        app.db = Arc::new(Mutex::new(Some(Database::new().unwrap())));
+        println!("Database initialized");
+    }
 }
 pub fn initialize_map() -> Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>> {
     let mut map: HashMap<ArcStr, HashSet<ArcStr>> = HashMap::new();
