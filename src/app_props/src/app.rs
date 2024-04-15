@@ -28,7 +28,7 @@ pub fn initialize_embeddings(app: Arc<Mutex<App>>) {
     {
         let mut app = app.lock().unwrap();
         let mut embeddings = app.embeddings.lock().unwrap();
-        embeddings.get_embeddings(r"C:\Users\ikvict\RustroverProjects\file-search\glove.6B.300d.txt");
+        embeddings.get_embeddings(r"C:\Users\ikvict\RustroverProjects\file-search\glove.6B.100d.txt");
         print!("Embeddings initialized\n");
     }
     {
