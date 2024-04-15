@@ -36,7 +36,7 @@ fn main() {
         map: map,
         trie: Arc::new(Mutex::new(SomeTrie::TrieBuilder(TrieBuilder::new()))),
         is_prefix_search_enabled: Arc::new(Mutex::new(false)),
-        embeddings: initialize_embeddings(),
+        embeddings: Arc::new(Mutex::new(Embedding::new())),
     };
     let app_props = Arc::new(Mutex::new(app_props));
     dioxus_desktop::launch_with_props(
@@ -72,6 +72,7 @@ fn start_window<'a>(cx: Scope<'a, Arc<Mutex<App>>>, active_window: &'a UseState<
         div {
             h1 { "Start Window" }
             button { onclick: move |_| { enable_prefix_search(cx.props); }, "Enable prefix search" }
+            button { onclick: move |_| { initialize_embeddings(cx.props.clone()); }, "Enable image search" }
         }
     })
 }
@@ -154,7 +155,7 @@ pub fn file_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
             button {
                 onclick: move |_| {
                     let dir = input_value.get().clone();
-                    index_directory(dir, &mut *app);;
+                    index_directory(dir, &mut *app);
                 },
                 "Индексировать директорию"
             }
@@ -194,14 +195,59 @@ fn index_directory(dir: String, app: &mut App) {
 }
 
 pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
+    let input_value = use_state(&cx, || "".to_string());
+    let mut app = cx.props;
     cx.render(rsx! {
         div {
             h1 { "Image Search Window" }
+            input {
+                value: "{input_value}",
+                oninput: move |event| {
+                    let input = &event.value;
+                    input_value.set(input.to_string());
+                }
+            }
             button {
-
+                onclick: move |_| {
+                    let dir = input_value.get().clone();
+                    let app = app.clone();
+                    tokio::spawn(async move {
+                        search_images(dir, app).await;
+                    });
+                },
+                "Поиск изображений"
             }
         }
     })
+}
+
+async fn search_images(dir: String, app: Arc<Mutex<App>>) {
+    let embeddings = app.lock().unwrap().embeddings.clone();
+    let db = db::database::Database::new().unwrap();
+    let embeddings = embeddings.lock().unwrap();
+
+    let res = embeddings.average_vector(dir.as_str());
+
+    let ids = db.select_all_images();
+    let mut results = Vec::new();
+    let time = std::time::Instant::now();
+    for id in ids {
+        let mut statement = db.connection.as_ref().unwrap().prepare("SELECT value FROM semantic_vectors WHERE image_id = ?1").unwrap();
+        let mut rows = statement.query(&[&id]).unwrap();
+        let mut vec = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            let value: f32 = row.get(0).unwrap();
+            vec.push(value);
+        }
+        results.push((id, Embedding::cosine_similarity(&res, &vec)));
+    }
+
+    results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    for (id, value) in results.iter().take(10) {
+        println!("Id: {}, Value: {}", id, value);
+    }
+    println!("Time: {:?}", time.elapsed());
+    db.close();
 }
 
 pub fn image_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
@@ -321,59 +367,33 @@ pub async  fn index_images<'a> (dir: String, app: Arc<Mutex<App>>) {
     // println!("Image: {:?}", test);
     //
     // db.close();
-    // let walker = DirWalker::new(&dir).unwrap();
-    // let mut embeddings = Embedding::new();
-    // embeddings.get_embeddings(r"C:\Users\ikvict\RustroverProjects\file-search\glove.6B.300d.txt");
-    // let embeddings = embeddings;
-    // let db = db::database::Database::new().unwrap();
-    // let db_arc = Arc::new(Mutex::new(db));
-    // let db_for_closure = Arc::clone(&db_arc);
-    // walker.send_requests_for_dir_apply(10, |resp, path| {
-    //     let db = db_for_closure.lock().unwrap();
-    //     match resp {
-    //         Ok(response) => {
-    //             let semantic_vector = SemanticVec::from_vec(embeddings.average_vector(&response.caption));
-    //             let mut image = Image::new(path.to_str().unwrap().to_string(), path.file_name().unwrap().to_str().unwrap().to_string());
-    //             let conn = db.connection.as_ref().unwrap();
-    //             image.set_semantic_vector(semantic_vector);
-    //             match image.save(conn) {
-    //                 Ok(_) => {}
-    //                 Err(e) => {
-    //                     println!("Error: {:?}", e);
-    //                 }
-    //             }
-    //         }
-    //         Err(e) => {
-    //             println!("Error: {:?}", e);
-    //         }
-    //     }
-    // }).await.expect("Couldnt open dir");
-    // db.close();
-    let embeddings = app.lock().unwrap().embeddings.clone();
+    let walker = DirWalker::new(&dir).unwrap();
+    let mut embeddings = app.lock().unwrap().embeddings.clone();
     let db = db::database::Database::new().unwrap();
-    let embeddings = embeddings.lock().unwrap();
-
-    let res = embeddings.average_vector(dir.as_str());
-
-    let ids = db.select_all_images();
-    let mut results = Vec::new();
-    println!("{:?}", ids);
-    let time = std::time::Instant::now();
-    for id in ids {
-        let mut statement = db.connection.as_ref().unwrap().prepare("SELECT value FROM semantic_vectors WHERE image_id = ?1").unwrap();
-        let mut rows = statement.query(&[&id]).unwrap();
-        let mut vec = Vec::new();
-        while let Some(row) = rows.next().unwrap() {
-            let value: f32 = row.get(0).unwrap();
-            vec.push(value);
+    let db_arc = Arc::new(Mutex::new(Some(db)));
+    let db_for_closure = Arc::clone(&db_arc);
+    walker.send_requests_for_dir_apply(10, |resp, path| {
+        let db = db_for_closure.lock().unwrap();
+        match resp {
+            Ok(response) => {
+                let semantic_vector = SemanticVec::from_vec(embeddings.lock().unwrap().average_vector(&response.caption));
+                let mut image = Image::new(path.to_str().unwrap().to_string(), path.file_name().unwrap().to_str().unwrap().to_string());
+                let conn = db.as_ref().unwrap().connection.as_ref().unwrap();
+                image.set_semantic_vector(semantic_vector);
+                match image.save(conn) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("Error: {:?}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                println!("Error: {:?}", e);
+            }
         }
-        results.push((id, Embedding::cosine_similarity(&res, &vec)));
+    }).await.expect("Couldnt open dir");
+    let mut db_option = db_for_closure.lock().unwrap();
+    if let Some(db) = db_option.take() {
+        db.close();
     }
-
-    results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-    for (id, value) in results {
-        println!("Id: {}, Value: {}", id, value);
-    }
-    println!("Time: {:?}", time.elapsed());
-    db.close();
 }

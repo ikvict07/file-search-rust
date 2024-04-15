@@ -21,11 +21,10 @@ pub struct App {
 }
 
 impl App {}
-pub fn initialize_embeddings() -> Arc<Mutex<Embedding>> {
-    let mut embeddings = Embedding::new();
+pub fn initialize_embeddings(app: Arc<Mutex<App>>) {
+    let app = app.lock().unwrap();
+    let mut embeddings = app.embeddings.lock().unwrap();
     embeddings.get_embeddings(r"C:\Users\ikvict\RustroverProjects\file-search\glove.6B.300d.txt");
-    let embeddings = Arc::new(Mutex::new(embeddings));
-    embeddings
 }
 pub fn initialize_map() -> Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>> {
     let mut map: HashMap<ArcStr, HashSet<ArcStr>> = HashMap::new();

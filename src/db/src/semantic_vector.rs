@@ -14,7 +14,6 @@ impl crate::database::Save for Vec<SemanticVectorElement>
 {
     fn save(&mut self, connection: &Connection) -> Result<u32, rusqlite::Error> {
         for ( value) in self.iter_mut() {
-            println!("saving {}", value.value);
             match connection.execute(
                 "INSERT INTO semantic_vectors (image_id, value) VALUES (?1, ?2)",
                 (value.image_id, value.value),
