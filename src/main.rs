@@ -98,7 +98,9 @@ fn start_window<'a>(cx: Scope<'a, Arc<Mutex<App>>>, active_window: &'a UseState<
 
 pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
-    let found_files = use_state(&cx, || Vec::new());
+    let found_files:&UseState<Vec<String>> = use_state(&cx, || Vec::new());
+    let results_state: &UseState<Vec<(String, u32, f32)>> = use_state(&cx, || Vec::new()); //uselles
+
     let files: &Vec<String> = found_files.get();
 
 
@@ -118,32 +120,31 @@ pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
                 onclick: move |_| {
                     let dir = input_value.get().clone();
                     let is_enabled = app.is_prefix_search_enabled.clone();
+                    let mut temp= Vec::new();
                         if *(is_enabled.lock().unwrap()) { // Prefix search
                             if let SomeTrie::Trie(trie) = app.trie.lock().unwrap().deref() {
                                 let found_names = trie.predictive_search(dir.clone().as_bytes());
-                                let mut temp= Vec::new();
                                 for (name) in found_names {
                                     let map_lock = app.map.lock().unwrap();
                                     for file in map_lock.get(&ArcStr(Arc::from(String::from_utf8(name.clone()).unwrap()))).unwrap() {
                                         temp.push(String::from_utf8(name.clone()).unwrap() + ": " + &*file.0.to_string());
                                     }
                                 }
-                                found_files.set(temp);
+
                             }
                             else {
                                 panic!("Trie is not initialized");
                             }
                         } else { // No prefix search
                             let map_lock = app.map.lock().unwrap();
-                            let mut temp= Vec::new();
+
                             if let Some(files) = map_lock.get(&ArcStr(Arc::from(dir.clone()))) {
                                 for file in files {
                                     temp.push(dir.clone() + ": " + &*file.0.to_string());
                                 }
                             }
-                            found_files.set(temp);
                         }
-
+                    found_files.set(temp);
                 },
                 "Поиск файлов"
             }
@@ -214,13 +215,9 @@ fn index_directory(dir: String, app: &mut App) {
 
 pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
-    let app = cx.props.clone();
+    let found_files:&UseState<Vec<String>> = use_state(&cx, || Vec::new()); //uselles here only to satisfy hook order
     let results_state: &UseState<Vec<(String, u32, f32)>> = use_state(&cx, || Vec::new());
-    let results = results_state.get();
-
-
-    let r_state: &UseState<Vec<(String, u32, f32)>> = use_state(&cx, || Vec::new());
-
+    let app = cx.props.clone();
 
     cx.render(rsx! {
         div {
@@ -244,18 +241,17 @@ pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
                     });
 
                     let results = rx.recv().unwrap();
-                    results_state.set(results.clone());
                     let mut r = Vec::new();
                     for (path, id, value) in results.iter() {
                         let src = format!("/{}", path);
                         r.push((src.clone(), *id, *value));
                     }
-                    r_state.set(r);
+                    results_state.set(r.clone());
                 },
                 "Поиск изображений"
             }
             div {
-                for (path, id, value) in r_state.get().iter() {
+                for (path, id, value) in results_state.get().iter() {
                     img {
                         src: &**path, // Передаем владеющий объект img_src, а не ссылку
                         width: "100",
@@ -269,10 +265,6 @@ pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
         }
     })
 }
-
-
-
-
 
 
 async fn search_images(dir: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f32)> {
@@ -340,7 +332,7 @@ pub fn image_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
 }
 
 
-pub async  fn index_images<'a> (dir: String, app: Arc<Mutex<App>>) {
+pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
     let walker = DirWalker::new(&dir).unwrap();
     let mut embeddings = app.lock().unwrap().embeddings.clone();
     let db = app.lock().unwrap().db.clone();
