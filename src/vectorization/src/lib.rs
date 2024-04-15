@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::BufReader;
 use ndarray::Array1;
 use std::time::Instant;
+use memmap::Mmap;
+
 
 pub struct Embedding {
     embeddings: Embeddings<SimpleVocab, NdArray>,
@@ -19,6 +21,7 @@ impl Embedding {
     pub fn get_embeddings(&mut self, path: &str) {
         let start = Instant::now();
         println!("Start loading embeddings");
+
         let mut reader = BufReader::new(File::open(path).unwrap());
         self.embeddings = Embeddings::read_text(&mut reader, true).unwrap();
 
