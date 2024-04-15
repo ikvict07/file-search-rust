@@ -1,9 +1,9 @@
-## <span style="color:cyan">File Search Rust</span>
+## ${\color{cyan}File Search Rust}$
 <img src="./logo.png" width="150" alt="">
 
 ### Project was created as university project for the course "Programming in Rust".
 
-<span style="color:cyan">**File Search Rust**</span> aims to develop an efficient file search system for the Windows operating system.
+${\color{cyan}File Search Rust}$ aims to develop an efficient file search system for the Windows operating system.
 Traditional search methods provided by the OS often demonstrate insufficient performance, especially when dealing with large volumes of data.
 In response to this, we propose the creation of our own search system, based on file system indexing and the use of a trie data structure to accelerate the search process.
 
@@ -14,9 +14,10 @@ In response to this, we propose the creation of our own search system, based on 
 - **File Search Using a only hashmap:** After indexing, the user can perform file searches based on exact file name.
     This process is done by reading the serialized hashmap and searching for the file name.
 - **Prefix Search:** The user can enable prefix search for files based on prefix of the file name.
-- <span style="color:lime">**Image Indexing**</span> Main feature of our project is indexing images. 
+
+- **${\color{lime}Image Indexing}$** Main feature of our project is indexing images. 
     We generate captions for every image in the directory and save them in a database.
-- <span style="color:lime">**Image Search:**</span> User can search for images based on the caption of the image.
+- **${\color{lime}Image Search}$** User can search for images based on the caption of the image.
 
 ### Libs
 - serde
