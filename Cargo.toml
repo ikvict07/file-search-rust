@@ -23,3 +23,4 @@ db = { path = "src/db" }
 app_props = { path = "src/app_props" }
 img_azure = { path = "src/img_azure" }
 vectorization = { path = "src/vectorization" }
+manganis = "0.2.2"
