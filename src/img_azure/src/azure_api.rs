@@ -47,8 +47,8 @@ impl AzureRequest {
 }
 #[derive(Debug, Deserialize)]
 pub struct Label {
-    name: String,
-    score: f64,
+    pub name: String,
+    pub score: f64,
 }
 impl Label {
     pub fn new(name: String, score: f64) -> Self {
