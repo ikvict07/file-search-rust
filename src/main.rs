@@ -37,12 +37,25 @@ fn main() {
         trie: Arc::new(Mutex::new(SomeTrie::TrieBuilder(TrieBuilder::new()))),
         is_prefix_search_enabled: Arc::new(Mutex::new(false)),
         embeddings: Arc::new(Mutex::new(Embedding::new())),
+        db: Arc::new(Mutex::new(None)),
     };
-    let app_props = Arc::new(Mutex::new(app_props));
+    let app_props_arc = Arc::new(Mutex::new(app_props));
     dioxus_desktop::launch_with_props(
         app,
-        app_props,
+        app_props_arc.clone(),
         Config::default());
+
+    println!("Hello, world!");
+    // Try to lock the Mutex in App first
+    if let Ok(mut app_props_guard) = app_props_arc.lock() {
+        // Then try to lock the Mutex in db
+        if let Ok(mut db_guard) = app_props_guard.db.lock() {
+            // If both Mutexes are successfully locked, take and close the db
+            if let Some(db) = db_guard.take() {
+                db.close();
+            }
+        }
+    };
 }
 
 
@@ -308,77 +321,17 @@ fn handle_response_label(response: Value) -> Result<(), Box<dyn Error>> {
 
 
 pub async  fn index_images<'a> (dir: String, app: Arc<Mutex<App>>) {
-    // let secret = String::from("client_secret.json");
-    // let label_processor = ImageProcessor::new_label(dir.clone(), secret.clone());
-    // let caption_processor = ImageProcessor::new_caption(dir, secret, 3);
-    // let label_callback = Arc::new(Mutex::new(handle_response_label));
-    // let caption_callback = Arc::new(Mutex::new(handle_response_caption));
-    // let label_callback_clone = label_callback.clone();
-    // let caption_callback_clone = caption_callback.clone();
-    //
-    // let label_task = tokio::spawn(async move {
-    //     if let ImageProcessor::Label(label_processor) = label_processor.await {
-    //         label_processor.process(label_callback_clone).await.unwrap();
-    //     }
-    // });
-    // let caption_task = tokio::spawn(async move {
-    //     if let ImageProcessor::Caption(caption_processor) = caption_processor.await {
-    //         caption_processor.process(caption_callback_clone).await.unwrap();
-    //     }
-    // });
-    // let _ = tokio::join!(label_task, caption_task);
-
-    // let db = db::database::Database::new();
-    // let vector = vec![2.0, 3.1, 4.3];
-    // let semantic_vector = db::semantic_vector::SemanticVec::from_vec(vector);
-    //
-    //
-    // if db.is_err() {
-    //     return;
-    // }
-    // let db = db.unwrap();
-    //
-    // let mut image = Image::new(String::from("path4"), String::from("title2"));
-    //
-    // let conn = db.connection.as_ref();
-    // if conn.is_none() {
-    //     return;
-    // }
-    // println!("Db");
-    // let conn = conn.unwrap();
-    // image.set_semantic_vector(semantic_vector);
-    // match image.save(conn) {
-    //     Ok(_) => {}
-    //     Err(e) => {
-    //         println!("Error: {:?}", e);
-    //     }
-    // }
-    //
-    // let test = db.select_image_by_path("path4");
-    //
-    // match test {
-    //     None => {
-    //         db.close();
-    //         return;
-    //     }
-    //     Some(_) => {}
-    // }
-    // let test = test.unwrap();
-    // println!("Image: {:?}", test);
-    //
-    // db.close();
     let walker = DirWalker::new(&dir).unwrap();
     let mut embeddings = app.lock().unwrap().embeddings.clone();
-    let db = db::database::Database::new().unwrap();
-    let db_arc = Arc::new(Mutex::new(Some(db)));
-    let db_for_closure = Arc::clone(&db_arc);
+    let db = app.lock().unwrap().db.clone();
+    let db_for_closure = Arc::clone(&db);
     walker.send_requests_for_dir_apply(10, |resp, path| {
-        let db = db_for_closure.lock().unwrap();
+        let mut db = db_for_closure.lock().unwrap();
         match resp {
             Ok(response) => {
                 let semantic_vector = SemanticVec::from_vec(embeddings.lock().unwrap().average_vector(&response.caption));
                 let mut image = Image::new(path.to_str().unwrap().to_string(), path.file_name().unwrap().to_str().unwrap().to_string());
-                let conn = db.as_ref().unwrap().connection.as_ref().unwrap();
+                let conn = db.as_mut().unwrap().connection.as_mut().unwrap();
                 image.set_semantic_vector(semantic_vector);
                 match image.save(conn) {
                     Ok(_) => {}
@@ -392,8 +345,8 @@ pub async  fn index_images<'a> (dir: String, app: Arc<Mutex<App>>) {
             }
         }
     }).await.expect("Couldnt open dir");
-    let mut db_option = db_for_closure.lock().unwrap();
-    if let Some(db) = db_option.take() {
-        db.close();
-    }
+    // let mut db_option = db_for_closure.lock().unwrap();
+    // if let Some(db) = db_option.take() {
+    //     db.close();
+    // }
 }

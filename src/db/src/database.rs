@@ -46,6 +46,14 @@ impl Database {
             Ok(_) => (),
             Err(e) => return Err(e),
         };
+        match connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS index_semantic_vectors_on_image_id ON semantic_vectors (image_id)",
+                [],
+            ) {
+            Ok(_) => (),
+            Err(e) => return Err(e),
+        };
         Ok(Database { connection: Some(connection) })
     }
 }
@@ -65,12 +73,12 @@ impl Database {
 }
 
 pub trait Save {
-    fn save(&mut self, connection: &Connection) -> Result<u32, rusqlite::Error>;
+    fn save(&mut self, connection: &mut Connection) -> Result<u32, rusqlite::Error>;
 }
 
 impl Database {
     pub fn save<T: Save>(&mut self, item: &mut T) {
-        item.save(self.connection.as_ref().unwrap());
+        item.save(self.connection.as_mut().unwrap());
     }
 
     pub fn save_all<T: Save>(&mut self, items: &mut Vec<T>) {
