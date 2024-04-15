@@ -50,13 +50,11 @@ impl Embedding {
 
     pub fn cosine_similarity(vector1: &[f32], vector2: &[f32]) -> f32 {
         let start = Instant::now();
-        println!("Start calculating similarity");
 
         let dot_product: f32 = vector1.iter().zip(vector2).map(|(a, b)| a * b).sum();
         let magnitude1: f32 = vector1.iter().map(|a| a.powi(2)).sum::<f32>().sqrt();
         let magnitude2: f32 = vector2.iter().map(|a| a.powi(2)).sum::<f32>().sqrt();
 
-        println!("Similarity is calculated\nTime: {:?}", start.elapsed().as_secs());
         dot_product / (magnitude1 * magnitude2)
     }
 
