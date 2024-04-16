@@ -1062,6 +1062,7 @@ dependencies = [
 name = "file_system"
 version = "0.1.0"
 dependencies = [
+ "db",
  "futures",
  "governor",
  "img_azure",
