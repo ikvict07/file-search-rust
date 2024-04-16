@@ -21,20 +21,35 @@ impl Embedding {
     pub fn get_embeddings(&mut self, path: &str) {
         let start = Instant::now();
         println!("Start loading embeddings");
+        let file = File::open(path).unwrap();
+        let mmap = unsafe { Mmap::map(&file).unwrap() };
 
-        let mut reader = BufReader::new(File::open(path).unwrap());
+        let mut reader = BufReader::new(&*mmap);
         self.embeddings = Embeddings::read_text(&mut reader, true).unwrap();
 
         println!("embeddings are loaded!!!\nTime: {:?}", start.elapsed());
     }
 
-    pub fn average_vector(&self, sentence: &str) -> Vec<f32> {
-        let words = sentence.split_whitespace();
+    fn prepare_text(text: &str) -> Vec<String> {
+        let mut tokens: String = String::new();
+        for i in text.chars() {
+            if i.is_alphabetic() || i == ' ' {
+                tokens.push(i);
+            }
+        }
+
+        tokens = tokens.to_lowercase();
+        tokens.split_whitespace().map(|s| s.to_string()).collect()
+    }
+    pub fn average_vector(&mut self, sentence: &str) -> Vec<f32> {
+        println!("Sentence: {:?}", sentence);
+        let words: Vec<String> = Self::prepare_text(sentence);
+        println!("After split: {:?}", words);
         let mut vector = vec![0.0; self.embeddings.dims()];
         let mut count = 0;
 
         for word in words {
-            if let Some(embedding) = self.embeddings.embedding(word) {
+            if let Some(embedding) = self.embeddings.embedding(word.as_str()) {
                 for (i, value) in embedding.as_view().iter().enumerate() {
                     vector[i] += *value;
                 }

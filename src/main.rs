@@ -18,12 +18,14 @@ use db::{database::Save, image::Image};
 use app_props::app::*;
 use vectorization::*;
 use std::cell::{RefCell, RefMut};
+use std::cmp::Ordering;
+use std::io::ErrorKind;
 use std::path::PathBuf;
 use dioxus_desktop::wry::webview::Url;
 use manganis::mg;
 use tokio::sync::Notify;
 use db::semantic_vector::SemanticVec;
-use img_azure::azure_api::Label;
+use img_azure::azure_api::{AzureRequest, AzureResponse, Label};
 
 // Important we rewrite import from dioxus
 #[derive(Clone)]
@@ -35,7 +37,8 @@ enum ActiveWindow {
     ImageIndex,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let map = initialize_map();
     let app_props = App {
         map: map,
@@ -62,6 +65,7 @@ fn main() {
         }
     };
 }
+
 
 
 pub fn app(cx: Scope<Arc<Mutex<App>>>) -> Element {
@@ -271,7 +275,7 @@ async fn search_images(dir: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f
     let embeddings = app.lock().unwrap().embeddings.clone();
     let db = app.lock().unwrap().db.clone();
     let mut db = db.lock().unwrap();
-    let embeddings = embeddings.lock().unwrap();
+    let mut embeddings = embeddings.lock().unwrap();
 
     let res = embeddings.average_vector(dir.as_str());
 
@@ -296,7 +300,11 @@ async fn search_images(dir: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f
         }
     }
 
-    results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
+    results.sort_by(|a, b| match b.2.partial_cmp(&a.2) {
+        None => {Ordering::Less}
+        Some(res) => {res}
+    }
+    );
     for (path, id, value) in results.iter().take(10) {
         println!("Id: {}, Value: {}", id, value);
     }
@@ -334,10 +342,17 @@ pub fn image_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
 
 pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
     let walker = DirWalker::new(&dir).unwrap();
-    let mut embeddings = app.lock().unwrap().embeddings.clone();
-    let db = app.lock().unwrap().db.clone();
+    let embeddings = {
+        let app = app.lock().unwrap();
+        app.embeddings.clone()
+    };
+    let db = {
+        let app = app.lock().unwrap();
+        app.db.clone()
+    };
     let db_for_closure = Arc::clone(&db);
-    walker.send_requests_for_dir_apply(10, |resp, path| {
+    let db_for_send = db.clone();
+    walker.send_requests_for_dir_apply(db_for_send,10, move|resp, path| {
         let mut db = db_for_closure.lock().unwrap();
         match resp {
             Ok(mut response) => {
