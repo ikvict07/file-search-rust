@@ -14,3 +14,4 @@ img_azure = { path = "../img_azure" }
 serde_json = "1.0.115"
 tokio = "1.37.0"
 db = { path = "../db"}
+im = { version = "0.25.1", package = "image" }
