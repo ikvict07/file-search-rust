@@ -42,9 +42,7 @@ impl Embedding {
         tokens.split_whitespace().map(|s| s.to_string()).collect()
     }
     pub fn average_vector(&mut self, sentence: &str) -> Vec<f32> {
-        println!("Sentence: {:?}", sentence);
         let words: Vec<String> = Self::prepare_text(sentence);
-        println!("After split: {:?}", words);
         let mut vector = vec![0.0; self.embeddings.dims()];
         let mut count = 0;
 

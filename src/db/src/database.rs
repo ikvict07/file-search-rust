@@ -183,7 +183,7 @@ impl Database {
         }
         let mut rows = rows.unwrap();
 
-        Ok(rows.next().is_ok())
+        Ok(rows.next().unwrap().is_some())
     }
 
     pub fn select_all_images(&self) -> Vec<u32> {
