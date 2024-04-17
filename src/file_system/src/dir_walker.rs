@@ -54,6 +54,8 @@ impl DirWalker {
                             eprintln!("{}", entry.err().unwrap());
                             continue;
                         }
+                        let entry = entry.unwrap();
+
                         let path = entry.path();
                         if Self::is_symlink(&path) {
                             continue;
@@ -168,7 +170,6 @@ impl DirWalker {
     }
 
     fn add_dir(dirs_arc_clone: Arc<Mutex<Vec<String>>>, path: &PathBuf) {
-        let path_str = path.to_str().unwrap();
         if Self::is_symlink(&path) {
             return;
         };

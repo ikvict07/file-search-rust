@@ -41,7 +41,7 @@ enum ActiveWindow {
 async fn main() {
     let map = initialize_map();
     let app_props = App {
-        map: map,
+        map,
         trie: Arc::new(Mutex::new(SomeTrie::TrieBuilder(TrieBuilder::new()))),
         is_prefix_search_enabled: Arc::new(Mutex::new(false)),
         embeddings: Arc::new(Mutex::new(Embedding::new())),
@@ -52,20 +52,14 @@ async fn main() {
         app,
         app_props_arc.clone(),
         Config::default());
-
-    println!("Hello, world!");
-    // Try to lock the Mutex in App first
     if let Ok(mut app_props_guard) = app_props_arc.lock() {
-        // Then try to lock the Mutex in db
         if let Ok(mut db_guard) = app_props_guard.db.lock() {
-            // If both Mutexes are successfully locked, take and close the db
             if let Some(db) = db_guard.take() {
                 db.close();
             }
         }
     };
 }
-
 
 
 pub fn app(cx: Scope<Arc<Mutex<App>>>) -> Element {
@@ -102,11 +96,10 @@ fn start_window<'a>(cx: Scope<'a, Arc<Mutex<App>>>, active_window: &'a UseState<
 
 pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
-    let found_files:&UseState<Vec<String>> = use_state(&cx, || Vec::new());
+    let found_files: &UseState<Vec<String>> = use_state(&cx, || Vec::new());
     let results_state: &UseState<Vec<(String, u32, f32)>> = use_state(&cx, || Vec::new()); //uselles
 
     let files: &Vec<String> = found_files.get();
-
 
     let app = cx.props.lock().unwrap();
 
@@ -122,33 +115,8 @@ pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
             }
             button {
                 onclick: move |_| {
-                    let dir = input_value.get().clone();
-                    let is_enabled = app.is_prefix_search_enabled.clone();
-                    let mut temp= Vec::new();
-                        if *(is_enabled.lock().unwrap()) { // Prefix search
-                            if let SomeTrie::Trie(trie) = app.trie.lock().unwrap().deref() {
-                                let found_names = trie.predictive_search(dir.clone().as_bytes());
-                                for (name) in found_names {
-                                    let map_lock = app.map.lock().unwrap();
-                                    for file in map_lock.get(&ArcStr(Arc::from(String::from_utf8(name.clone()).unwrap()))).unwrap() {
-                                        temp.push(String::from_utf8(name.clone()).unwrap() + ": " + &*file.0.to_string());
-                                    }
-                                }
-
-                            }
-                            else {
-                                panic!("Trie is not initialized");
-                            }
-                        } else { // No prefix search
-                            let map_lock = app.map.lock().unwrap();
-
-                            if let Some(files) = map_lock.get(&ArcStr(Arc::from(dir.clone()))) {
-                                for file in files {
-                                    temp.push(dir.clone() + ": " + &*file.0.to_string());
-                                }
-                            }
-                        }
-                    found_files.set(temp);
+                    let results= on_click_file_search(input_value.get().clone(), cx.props);
+                    found_files.set(results);
                 },
                 "Поиск файлов"
             }
@@ -159,6 +127,33 @@ pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
             }
         }
     })
+}
+
+fn on_click_file_search(filename: String, app: &Arc<Mutex<App>>) -> Vec<String> {
+    let app = app.lock().unwrap();
+    let is_enabled = app.is_prefix_search_enabled.lock().unwrap();
+    let mut result = Vec::new();
+    if *(is_enabled.deref()) { // Prefix search
+        if let SomeTrie::Trie(trie) = app.trie.lock().unwrap().deref() {
+            let found_names = trie.predictive_search(filename.clone().as_bytes());
+            for (name) in found_names {
+                let map_lock = app.map.lock().unwrap();
+                for file in map_lock.get(&ArcStr(Arc::from(String::from_utf8(name.clone()).unwrap()))).unwrap() {
+                    result.push(String::from_utf8(name.clone()).unwrap() + ": " + &*file.0.to_string());
+                }
+            }
+        } else {
+            panic!("Trie is not initialized");
+        }
+    } else { // No prefix search
+        let map_lock = app.map.lock().unwrap();
+        if let Some(files) = map_lock.get(&ArcStr(Arc::from(filename.clone()))) {
+            for file in files {
+                result.push(filename.clone() + ": " + &*file.0.to_string());
+            }
+        }
+    }
+    result
 }
 
 
@@ -219,7 +214,7 @@ fn index_directory(dir: String, app: &mut App) {
 
 pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
-    let found_files:&UseState<Vec<String>> = use_state(&cx, || Vec::new()); //uselles here only to satisfy hook order
+    let found_files: &UseState<Vec<String>> = use_state(&cx, || Vec::new()); //uselles here only to satisfy hook order
     let results_state: &UseState<Vec<(String, u32, f32)>> = use_state(&cx, || Vec::new());
     let app = cx.props.clone();
 
@@ -235,21 +230,7 @@ pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
             }
             button {
                 onclick: move |_| {
-                    let dir = input_value.get().clone();
-                    let app_clone = app.clone();
-                    let (tx, rx) = std::sync::mpsc::channel();
-
-                    tokio::spawn(async move {
-                        let results = search_images(dir, app_clone).await;
-                        tx.send(results).unwrap();
-                    });
-
-                    let results = rx.recv().unwrap();
-                    let mut r = Vec::new();
-                    for (path, id, value) in results.iter() {
-                        let src = format!("/{}", path);
-                        r.push((src.clone(), *id, *value));
-                    }
+                    let r = on_click_image_search(input_value.get().clone(), cx.props.clone());
                     results_state.set(r.clone());
                 },
                 "Поиск изображений"
@@ -257,7 +238,7 @@ pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
             div {
                 for (path, id, value) in results_state.get().iter() {
                     img {
-                        src: &**path, // Передаем владеющий объект img_src, а не ссылку
+                        src: &**path,
                         width: "100",
                         height: "100"
                     }
@@ -268,6 +249,27 @@ pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
             }
         }
     })
+}
+
+fn on_click_image_search(prompt: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f32)> {
+    let mut r = Vec::new();
+    let (tx, rx) = std::sync::mpsc::channel();
+    tokio::spawn(async move {
+        let results = search_images(prompt, app).await;
+        tx.send(results).unwrap();
+    });
+    let results = rx.recv().unwrap();
+    for (path, id, value) in results.iter() {
+        let is_windows_os = cfg!(target_os = "windows");
+        let src = String::from("");
+        if is_windows_os {
+            let src = format!("/{}", path);
+        } else {
+            let src = format!("{}", path);
+        }
+        r.push((src.clone(), *id, *value));
+    }
+    r
 }
 
 
@@ -301,8 +303,8 @@ async fn search_images(dir: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f
     }
 
     results.sort_by(|a, b| match b.2.partial_cmp(&a.2) {
-        None => {Ordering::Less}
-        Some(res) => {res}
+        None => { Ordering::Less }
+        Some(res) => { res }
     }
     );
     for (path, id, value) in results.iter().take(10) {
@@ -352,43 +354,44 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
     };
     let db_for_closure = Arc::clone(&db);
     let db_for_send = db.clone();
-    walker.send_requests_for_dir_apply(db_for_send,10, move|resp, path| {
+    walker.send_requests_for_dir_apply(db_for_send, 10, move |resp, path| {
         let mut db = db_for_closure.lock().unwrap();
-        match resp {
-            Ok(mut response) => {
-                let mut label_vec = Vec::new();
-                response.labels.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-                for label in response.labels.iter().take(10) {
-                    label_vec.push(label.name.clone());
-                }
+        if resp.is_err() {
+            println!("Error: {:?}", resp.err().unwrap());
+            return;
+        }
+        let mut response = resp.unwrap();
+        let mut label_vec = Vec::new();
+        response.labels.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        for label in response.labels.iter().take(10) {
+            label_vec.push(label.name.clone());
+        }
 
-                let semantic_vector = {
-                    let mut semantic_vector_caption = (embeddings.lock().unwrap().average_vector(&response.caption));
-                    let mut semantic_vector_labels = (embeddings.lock().unwrap().average_vector(&label_vec.join(" ")));
-                    let mut v = Vec::new();
-                    for i in 0..semantic_vector_caption.len() {
-                        v.push(semantic_vector_caption[i] + semantic_vector_labels[i]);
-                    }
-                    for i in 0..v.len() {
-                        v[i] = v[i] / 2.0;
-                    }
-                    v
-                };
-                let semantic_vector = SemanticVec::from_vec(semantic_vector);
-                let mut image = Image::new(path.to_str().unwrap().to_string(), path.file_name().unwrap().to_str().unwrap().to_string());
-                let conn = db.as_mut().unwrap().connection.as_mut().unwrap();
-                image.set_semantic_vector(semantic_vector);
-                match image.save(conn) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        println!("Error: {:?}", e);
-                    }
-                }
-            }
+        let semantic_vector = prepare_semantic_vec(embeddings.clone(), &mut response, &mut label_vec);
+        let semantic_vector = SemanticVec::from_vec(semantic_vector);
+
+        let mut image = Image::new(path.to_str().unwrap().to_string(), path.file_name().unwrap().to_str().unwrap().to_string());
+        let conn = db.as_mut().unwrap().connection.as_mut().unwrap();
+        image.set_semantic_vector(semantic_vector);
+        match image.save(conn) {
+            Ok(_) => {}
             Err(e) => {
                 println!("Error: {:?}", e);
             }
         }
     }).await.expect("Couldnt open dir");
+}
+
+fn prepare_semantic_vec(embeddings: Arc<Mutex<Embedding>>, response: &mut AzureResponse, label_vec: &mut Vec<String>) -> Vec<f32> {
+    let mut semantic_vector_caption = (embeddings.lock().unwrap().average_vector(&response.caption));
+    let mut semantic_vector_labels = (embeddings.lock().unwrap().average_vector(&label_vec.join(" ")));
+    let mut v = Vec::new();
+    for i in 0..semantic_vector_caption.len() {
+        v.push(semantic_vector_caption[i] + semantic_vector_labels[i]);
+    }
+    for i in 0..v.len() {
+        v[i] = v[i] / 2.0;
+    }
+    v
 }
 
