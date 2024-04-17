@@ -194,6 +194,8 @@ impl DirWalker {
                             if flag {
                                 return;
                             }
+
+
                             let path = entry.path();
                             if path.is_file() {
                                 if !is_image(path.to_str().unwrap()) {
@@ -201,7 +203,14 @@ impl DirWalker {
                                 }
                                 let path_str = path.to_str().unwrap();
 
-
+                                let metadata = fs::symlink_metadata(&path);
+                                if metadata.is_err() {
+                                    return;
+                                }
+                                let metadata = metadata.unwrap();
+                                if metadata.file_type().is_symlink() {
+                                    return;
+                                }
                                 limiter.until_ready().await;
 
                                 let mut request = AzureRequest::new("4d7bd39a70c249eebd19f5b8d62f5d7b", vec!["tags", "caption"]);

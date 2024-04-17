@@ -391,3 +391,4 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
         }
     }).await.expect("Couldnt open dir");
 }
+
