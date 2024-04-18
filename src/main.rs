@@ -20,7 +20,7 @@ use dioxus_desktop::wry::webview::Url;
 use manganis::mg;
 use trie_rs::{TrieBuilder, Trie};
 
-use ui_facade::{file_index, image_index, image_search, on_click_file_search};
+use ui_facade::{file_index, file_search, image_index, image_search, on_click_file_search};
 #[derive(Clone)]
 enum ActiveWindow {
     StartWindow,
@@ -75,42 +75,6 @@ fn start_window<'a>(cx: Scope<'a, Arc<Mutex<App>>>, active_window: &'a UseState<
             h1 { "Start Window" }
             button { onclick: move |_| { enable_prefix_search(cx.props); }, "Enable prefix search" }
             button { onclick: move |_| { initialize_embeddings(cx.props.clone()); }, "Enable image search" }
-        }
-    })
-}
-
-
-pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
-    let input_value = use_state(&cx, || "".to_string());
-    let found_files: &UseState<Vec<String>> = use_state(&cx, || Vec::new());
-    let results_state: &UseState<Vec<(String, u32, f32)>> = use_state(&cx, || Vec::new()); //uselles
-
-    let files: &Vec<String> = found_files.get();
-
-    let app = cx.props.lock().unwrap();
-
-    cx.render(rsx! {
-        div {
-            h1 { "File Search Window" }
-            input {
-                value: "{input_value}",
-                oninput: move |event| {
-                    let input = &event.value;
-                    input_value.set(input.to_string());
-                }
-            }
-            button {
-                onclick: move |_| {
-                    let results= on_click_file_search(input_value.get().clone(), cx.props);
-                    found_files.set(results);
-                },
-                "Поиск файлов"
-            }
-            div {
-                for file in files {
-                    div { file.clone() }
-                }
-            }
         }
     })
 }
