@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use trie_rs::{Trie, TrieBuilder};
 use db::database::Database;
-use trie::arc_str::ArcStr;
+use arc_str::arc_str::ArcStr;
 use vectorization::Embedding;
 pub enum SomeTrie {
     Trie(Trie<u8>),
@@ -22,7 +22,17 @@ pub struct App {
     pub db: Arc<Mutex<Option<Database>>>
 }
 
-impl App {}
+impl App {
+    pub fn new() -> Self {
+        App {
+            map: initialize_map(),
+            trie: Arc::new(Mutex::new(SomeTrie::TrieBuilder(TrieBuilder::new()))),
+            is_prefix_search_enabled: Arc::new(Mutex::new(false)),
+            embeddings: Arc::new(Mutex::new(Embedding::new())),
+            db: Arc::new(Mutex::new(None)),
+        }
+    }
+}
 pub fn initialize_embeddings(app: Arc<Mutex<App>>) {
     let mut app_clone = app.clone();
     {
