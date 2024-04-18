@@ -1157,11 +1157,7 @@ dependencies = [
 name = "file_system"
 version = "0.1.0"
 dependencies = [
- "db",
  "futures",
- "governor",
- "image 0.25.1",
- "img_azure",
  "num_cpus",
  "reqwest 0.12.3",
  "serde_json",
@@ -4576,6 +4572,8 @@ dependencies = [
  "dioxus",
  "dioxus-desktop",
  "file_system",
+ "governor",
+ "image 0.25.1",
  "img_azure",
  "tokio",
  "vectorization",

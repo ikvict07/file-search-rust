@@ -2,20 +2,24 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufWriter;
+use std::num::NonZeroU32;
 use std::ops::Deref;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use app_props::app::{App, SomeTrie};
 use tokio;
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
 use arc_str::arc_str::ArcStr;
-use db::database::Save;
+use db::database::{Database, Save};
 use db::semantic_vector::SemanticVec;
 use img_azure::azure_api::AzureResponse;
 use vectorization::Embedding;
 use db::image::Image;
 use file_system::dir_walker::DirWalker;
-
+use governor::{Quota, RateLimiter};
+use im::GenericImageView;
+use img_azure::get_response_by_path;
+use img_azure::azure_api;
 async fn search_images(dir: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f32)> {
     let embeddings = app.lock().unwrap().embeddings.clone();
     let db = app.lock().unwrap().db.clone();
@@ -71,11 +75,19 @@ fn prepare_semantic_vec(embeddings: Arc<Mutex<Embedding>>, response: &mut AzureR
     v
 }
 
-fn index_directory(dir: String, app: &mut App) {
+async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
     println!("Indexing directory: {}", dir);
-    let map_for_closure = Arc::clone(&app.map);
+    let map_for_closure = {
+        let app = app.lock().unwrap();
+        app.map.clone()
+    };
+    let mut map_for_ser = {
+        let app = app.lock().unwrap();
+        app.map.clone()
+    };
     if let Ok(mut it) = DirWalker::new(&dir) {
-        it.walk_apply(move |path| {
+        it.walk(move |path| {
+            println!("Indexing file: {:?}", path);
             let path_string = Path::new(&path);
             let filename = path_string.file_name().unwrap().to_str().unwrap().to_string();
             let mut map = map_for_closure.lock().unwrap();
@@ -88,19 +100,20 @@ fn index_directory(dir: String, app: &mut App) {
             } else {
                 map.get_mut(&ArcStr(filename_arc.clone())).unwrap().insert(ArcStr(path_arc.clone()));
             }
-        });
+        }).await;
 
         let file = File::create("map.bin").expect("Unable to create file");
         let writer = BufWriter::new(file);
 
 
-        let mut map = app.map.lock().unwrap();
+        let mut map = map_for_ser.lock().unwrap();
         if bincode::serialize_into(writer, &*map).is_err() {
             println!("Error serializing map");
         }
         println!("Directory indexed");
     }
 }
+
 pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
     let found_files: &UseState<Vec<String>> = use_state(&cx, || Vec::new());
@@ -135,6 +148,7 @@ pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
         }
     })
 }
+
 pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
     let found_files: &UseState<Vec<String>> = use_state(&cx, || Vec::new()); //uselles here only to satisfy hook order
@@ -173,9 +187,10 @@ pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
         }
     })
 }
+
 pub fn file_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
-    let mut app = cx.props.lock().unwrap();
+    let app = cx.props.clone();
     cx.render(rsx! {
         div {
             h1 { "Окно индексации файлов" }
@@ -189,13 +204,17 @@ pub fn file_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
             button {
                 onclick: move |_| {
                     let dir = input_value.get().clone();
-                    index_directory(dir, &mut *app);
+                    let app_clone = app.clone();
+                    tokio::spawn(async move {
+                        index_directory(dir, app_clone).await;
+                    });
                 },
                 "Индексировать директорию"
             }
         }
     })
 }
+
 pub fn on_click_file_search(filename: String, app: &Arc<Mutex<App>>) -> Vec<String> {
     let app = app.lock().unwrap();
     let is_enabled = app.is_prefix_search_enabled.lock().unwrap();
@@ -222,6 +241,7 @@ pub fn on_click_file_search(filename: String, app: &Arc<Mutex<App>>) -> Vec<Stri
     }
     result
 }
+
 pub fn on_click_image_search(prompt: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f32)> {
     let mut r = Vec::new();
     let (tx, rx) = std::sync::mpsc::channel();
@@ -242,6 +262,7 @@ pub fn on_click_image_search(prompt: String, app: Arc<Mutex<App>>) -> Vec<(Strin
     }
     r
 }
+
 pub fn image_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
     let app = cx.props.clone();
@@ -282,8 +303,35 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
     };
     let db_for_closure = Arc::clone(&db);
     let db_for_send = db.clone();
-    walker.send_requests_for_dir_apply(db_for_send, 10, move |resp, path| {
+    let limiter = Arc::new(RateLimiter::direct(
+        Quota::per_second(NonZeroU32::new(10).unwrap()),
+    ));
+    walker.walk(move |path| {
+        let db_clone = Arc::clone(&db_for_send);
+        let path_buf = PathBuf::from(path.clone());
+        println!("Indexing image: {:?}", path);
+
+        if !path_buf.is_file() {
+            return;
+        }
+        if !DirWalker::is_image(&path) {
+            return;
+        }
+        if should_skip_image(db_clone, &path_buf) {
+            return;
+        }
+
         let mut db = db_for_closure.lock().unwrap();
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let limiter = Arc::clone(&limiter);
+        let path_clone = path.to_string();
+        tokio::spawn(async move {
+            limiter.until_ready().await;
+            let results = get_response_by_path(&path_clone).await;
+            tx.send(results).unwrap();
+        });
+        let resp = rx.recv().unwrap();
         if resp.is_err() {
             println!("Error: {:?}", resp.err().unwrap());
             return;
@@ -298,7 +346,7 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
         let semantic_vector = prepare_semantic_vec(embeddings.clone(), &mut response, &mut label_vec);
         let semantic_vector = SemanticVec::from_vec(semantic_vector);
 
-        let mut image = Image::new(path.to_str().unwrap().to_string(), path.file_name().unwrap().to_str().unwrap().to_string());
+        let mut image = Image::new(path.to_string(), path_buf.file_name().unwrap().to_str().unwrap().to_string());
         let conn = db.as_mut().unwrap().connection.as_mut().unwrap();
         image.set_semantic_vector(semantic_vector);
         match image.save(conn) {
@@ -307,5 +355,29 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
                 println!("Error: {:?}", e);
             }
         }
-    }).await.expect("Couldnt open dir");
+    }).await;
+}
+
+pub fn should_skip_image(mut db: Arc<Mutex<Option<Database>>>, path: &PathBuf) -> bool {
+    let mut db = db.lock().unwrap();
+    let mut flag = false;
+    if (path.is_file()) {
+        if DirWalker::is_image(path.to_str().unwrap()) {
+            let img = im::open(path.to_str().unwrap());
+            if img.is_err() {
+                println!("skip{}", path.to_str().unwrap());
+                flag = true;
+            } else {
+                let img = img.unwrap();
+                let (width, height) = img.dimensions();
+                if width < 50 || height < 50 || width > 16000 || height > 16000 {
+                    flag = true;
+                } else {
+                    let db = db.as_mut().unwrap();
+                    flag = db.exists_image_by_path(path.to_str().unwrap()).unwrap();
+                }
+            }
+        }
+    }
+    flag
 }
