@@ -60,9 +60,9 @@ checksum = "0952808a6c2afd1aa8947271f3a60f1a6763c7b912d210184c5149b5cf147247"
 name = "app_props"
 version = "0.1.0"
 dependencies = [
+ "arc_str",
  "bincode",
  "db",
- "trie",
  "trie-rs",
  "vectorization",
 ]
@@ -72,6 +72,13 @@ name = "arbitrary"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d5a26814d8dcb93b0e5a0ff3c6d80a8843bafb21b39e8e18a6f05471870e110"
+
+[[package]]
+name = "arc_str"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "arg_enum_proc_macro"
@@ -1136,22 +1143,14 @@ name = "file-search"
 version = "0.1.0"
 dependencies = [
  "app_props",
- "bincode",
- "db",
  "dioxus",
  "dioxus-desktop",
  "file_system",
- "img_azure",
  "manganis",
- "num_cpus",
- "once_cell",
- "rayon",
- "serde",
  "serde_json",
  "tokio",
- "trie",
  "trie-rs",
- "vectorization",
+ "ui_facade",
 ]
 
 [[package]]
@@ -4545,13 +4544,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "trie"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "trie-rs"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4572,6 +4564,22 @@ name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
+name = "ui_facade"
+version = "0.1.0"
+dependencies = [
+ "app_props",
+ "arc_str",
+ "bincode",
+ "db",
+ "dioxus",
+ "dioxus-desktop",
+ "file_system",
+ "img_azure",
+ "tokio",
+ "vectorization",
+]
 
 [[package]]
 name = "unicode-bidi"
