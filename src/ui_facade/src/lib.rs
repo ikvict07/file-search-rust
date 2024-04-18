@@ -25,11 +25,11 @@ pub fn on_click_image_search(prompt: String, app: Arc<Mutex<App>>) -> Vec<(Strin
     let results = rx.recv().unwrap();
     for (path, id, value) in results.iter() {
         let is_windows_os = cfg!(target_os = "windows");
-        let src = String::from("");
+        let mut src = String::from("");
         if is_windows_os {
-            let src = format!("/{}", path);
+            src = format!("/{}", path);
         } else {
-            let src = format!("{}", path);
+            src = format!("{}", path);
         }
         r.push((src.clone(), *id, *value));
     }
