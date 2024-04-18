@@ -5,13 +5,14 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/data_base/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/file_system/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/trie/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/image_to_text/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/text_to_vec/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/db/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/app_props/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/img_azure/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/vectorization/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/arc_str/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/ui_facade/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

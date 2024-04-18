@@ -1,0 +1,18 @@
+[package]
+name = "ui_facade"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+app_props = { path = "../app_props" }
+img_azure = { path = "../img_azure" }
+vectorization = { path = "../vectorization" }
+db = { path = "../db" }
+tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
+arc_str = { path = "../arc_str" }
+dioxus = { version = "0.4.0" }
+dioxus-desktop = { version = "0.4.0" }
+file_system = { path = "../file_system" }
+bincode = "1.3.3"
