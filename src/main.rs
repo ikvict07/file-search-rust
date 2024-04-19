@@ -46,8 +46,6 @@ async fn main() {
         }
     };
 }
-
-
 pub fn app(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let active_window = use_state(cx, || ActiveWindow::StartWindow);
 
@@ -78,10 +76,3 @@ fn start_window<'a>(cx: Scope<'a, Arc<Mutex<App>>>, active_window: &'a UseState<
         }
     })
 }
-
-
-
-
-
-
-
