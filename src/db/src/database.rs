@@ -189,7 +189,7 @@ impl Database {
     pub fn select_all_images(&self) -> Vec<u32> {
         let mut statement = self.connection.as_ref().unwrap()
             .prepare("SELECT id FROM images")
-            .expect("pISUN");
+            .expect("");
         let mut rows = statement.query(());
         if rows.is_err() {
             return vec![];
