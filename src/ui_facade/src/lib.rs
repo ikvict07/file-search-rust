@@ -77,6 +77,7 @@ fn prepare_semantic_vec(embeddings: Arc<Mutex<Embedding>>, response: &mut AzureR
 
 async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
     println!("Indexing directory: {}", dir);
+    let start = std::time::Instant::now();
     let map_for_closure = {
         let app = app.lock().unwrap();
         app.map.clone()
@@ -87,12 +88,12 @@ async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
     };
     if let Ok(mut it) = DirWalker::new(&dir) {
         it.walk(move |path| {
-            println!("Indexing file: {:?}", path);
             let path_string = Path::new(&path);
             let filename = path_string.file_name().unwrap().to_str().unwrap().to_string();
-            let mut map = map_for_closure.lock().unwrap();
             let filename_arc: Arc<str> = Arc::from(filename.clone());
             let path_arc: Arc<str> = Arc::from(path);
+
+            let mut map = map_for_closure.lock().unwrap();
             if !map.contains_key(&ArcStr(filename_arc.clone())) {
                 let mut v = HashSet::new();
                 v.insert(ArcStr(path_arc.clone()));
@@ -111,6 +112,7 @@ async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
             println!("Error serializing map");
         }
         println!("Directory indexed");
+        println!("Time: {:?}", start.elapsed());
     }
 }
 
@@ -321,7 +323,6 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
             return;
         }
 
-        let mut db = db_for_closure.lock().unwrap();
 
         let (tx, rx) = std::sync::mpsc::channel();
         let limiter = Arc::clone(&limiter);
@@ -347,8 +348,10 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
         let semantic_vector = SemanticVec::from_vec(semantic_vector);
 
         let mut image = Image::new(path.to_string(), path_buf.file_name().unwrap().to_str().unwrap().to_string());
-        let conn = db.as_mut().unwrap().connection.as_mut().unwrap();
         image.set_semantic_vector(semantic_vector);
+
+        let mut db = db_for_closure.lock().unwrap();
+        let conn = db.as_mut().unwrap().connection.as_mut().unwrap();
         match image.save(conn) {
             Ok(_) => {}
             Err(e) => {

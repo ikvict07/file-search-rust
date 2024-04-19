@@ -1,12 +1,13 @@
-use std::{fs, time};
+use std::{fs, thread, time};
 use std::io;
 use std::io::ErrorKind;
 use std::sync::{Arc, Mutex};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use futures::stream;
 use futures::stream::StreamExt;
 use serde_json::Value;
-
+use std::sync::Condvar;
 
 
 pub struct DirWalker {
@@ -21,72 +22,91 @@ impl DirWalker {
     }
 
     pub async fn walk(&self, f: impl Fn(&str) + Send + Sync + 'static) {
+        let start = time::Instant::now();
         let mut handles = vec![];
         let f = Arc::new(f);
-        for _ in 0..num_cpus::get() {
-            let dirs = self.dirs.clone();
+
+        let num_threads = num_cpus::get() - 1;
+        let sleeping_threads = Arc::new(AtomicUsize::new(0));
+        let pair = Arc::new((self.dirs.clone(), Condvar::new()));
+
+        for _ in 0..num_threads {
+            let pair2 = pair.clone();
+            let sleeping_threads = sleeping_threads.clone();
             let f = f.clone();
             let handle = tokio::spawn(async move {
-                'inner: while let Some(dir) = {
-                    let dirs = dirs.lock();
-                    if dirs.is_err() {
-                        break 'inner;
-                    }
-                    let mut dirs = dirs.unwrap();
-                    dirs.pop()
-                } {
-                    let dir_entries = tokio::fs::read_dir(dir).await;
-                    if dir_entries.is_err() {
-                        continue;
-                    }
-                    let dir_entries = dir_entries.unwrap();
-
-                    let dir_entries_stream = stream::unfold(dir_entries, |mut dir_entries| async {
-                        match dir_entries.next_entry().await {
-                            Ok(Some(entry)) => Some((entry, dir_entries)),
-                            _ => None,
-                        }
-                    });
-                    let callback = f.clone();
-                    let dirs_arc_clone = Arc::clone(&dirs);
-
-
-                    dir_entries_stream.for_each_concurrent(None, move |entry| {
-                        let callback = callback.clone();
-                        let dirs_arc_clone = Arc::clone(&dirs_arc_clone);
-                        async move {
-                            let path = entry.path();
-                            if Self::is_symlink(&path) {
+                loop {
+                    let (lock, cvar) = &*pair2;
+                    let dir = {
+                        let mut dirs = lock.lock().unwrap();
+                        while dirs.is_empty() {
+                            sleeping_threads.fetch_add(1, Ordering::SeqCst);
+                            if sleeping_threads.load(Ordering::SeqCst) == num_threads {
+                                cvar.notify_all();
                                 return;
-                            };
-                            if path.is_file() {
-                                let path_str = path.to_str().unwrap();
+                            }
+                            dirs = cvar.wait(dirs).unwrap();
+                            if sleeping_threads.load(Ordering::SeqCst) == num_threads {
+                                return;
+                            }
+                            sleeping_threads.fetch_sub(1, Ordering::SeqCst);
+                        }
+                        dirs.pop()
+                    };
+                    if let Some(dir) = dir {
+                        let dir_entries = tokio::fs::read_dir(dir).await;
+                        if dir_entries.is_err() {
+                            continue;
+                        }
+                        let dir_entries = dir_entries.unwrap();
 
+                        let dir_entries_stream = stream::unfold(dir_entries, |mut dir_entries| async {
+                            match dir_entries.next_entry().await {
+                                Ok(Some(entry)) => Some((entry, dir_entries)),
+                                _ => None,
+                            }
+                        });
+                        let callback = f.clone();
+
+                        dir_entries_stream.for_each_concurrent(None, move |entry| {
+                            let callback = callback.clone();
+                            async move {
+                                let path = entry.path();
                                 if Self::is_symlink(&path) {
                                     return;
                                 };
-                                callback(path_str);
-                            } else if path.is_dir() {
-                                Self::add_dir(dirs_arc_clone, &path);
+                                if path.is_file() {
+                                    let path_str = path.to_str().unwrap();
+
+                                    if Self::is_symlink(&path) {
+                                        return;
+                                    };
+                                    callback(path_str);
+                                } else if path.is_dir() {
+                                    Self::add_dir(lock.clone(), &path, cvar);
+                                }
                             }
-                        }
-                    }).await;
+                        }).await;
+                    }
                 }
             });
             handles.push(handle);
         }
 
+
         for handle in handles {
             handle.await.unwrap();
         }
+        println!("Elapsed time: {:?}", start.elapsed());
     }
 
-    fn add_dir(dirs_arc_clone: Arc<Mutex<Vec<String>>>, path: &PathBuf) {
+    fn add_dir(dirs_arc_clone: Arc<Mutex<Vec<String>>>, path: &PathBuf, cvar: &Condvar) {
         if Self::is_symlink(&path) {
             return;
         };
         let mut dirs = dirs_arc_clone.lock().unwrap();
         dirs.push(path.to_str().unwrap().to_string());
+        cvar.notify_one();
     }
 
     fn is_symlink(path: &PathBuf) -> bool {
