@@ -20,6 +20,7 @@ use governor::{Quota, RateLimiter};
 use im::GenericImageView;
 use img_azure::get_response_by_path;
 use img_azure::azure_api;
+
 async fn search_images(dir: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f32)> {
     let embeddings = app.lock().unwrap().embeddings.clone();
     let db = app.lock().unwrap().db.clone();
@@ -347,7 +348,6 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
             let results = get_response_by_path(&path_clone).await;
 
 
-
             let resp = results;
             if resp.is_err() {
                 println!("Error: {:?}", resp.err().unwrap());
@@ -374,30 +374,34 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
                     println!("Error: {:?}", e);
                 }
             }
-
         }
     }).await;
     println!("Indexing finished");
 }
 
 pub fn should_skip_image(mut db: Arc<Mutex<Option<Database>>>, path: &PathBuf) -> bool {
-    let mut db = db.lock().unwrap();
     let mut flag = false;
     if (path.is_file()) {
         if DirWalker::is_image(path.to_str().unwrap()) {
-            let img = im::open(path.to_str().unwrap());
-            if img.is_err() {
-                println!("skip{}", path.to_str().unwrap());
+            let res = im::image_dimensions(path);
+            if res.is_err() {
                 flag = true;
+                println!("skip0 {}", path.to_str().unwrap());
+                return flag;
+            }
+            let (width, height) = res.unwrap();
+            if width < 50 || height < 50 || width > 16000 || height > 16000 {
+                flag = true;
+                println!("skip1 {}", path.to_str().unwrap());
+                return flag;
             } else {
-                let img = img.unwrap();
-                let (width, height) = img.dimensions();
-                if width < 50 || height < 50 || width > 16000 || height > 16000 {
-                    flag = true;
-                } else {
-                    let db = db.as_mut().unwrap();
-                    flag = db.exists_image_by_path(path.to_str().unwrap()).unwrap();
+                let mut db = db.lock().unwrap();
+                let db = db.as_mut().unwrap();
+                flag = db.exists_image_by_path(path.to_str().unwrap()).unwrap();
+                if flag {
+                    println!("skip2 {}", path.to_str().unwrap());
                 }
+                return flag;
             }
         }
     }
