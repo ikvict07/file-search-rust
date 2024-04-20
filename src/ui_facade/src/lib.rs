@@ -76,7 +76,6 @@ fn prepare_semantic_vec(embeddings: Arc<Mutex<Embedding>>, response: &mut AzureR
 }
 
 async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
-    println!("Indexing directory: {}", dir);
     let start = std::time::Instant::now();
     let map_for_closure = {
         let app = app.lock().unwrap();
@@ -88,18 +87,22 @@ async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
     };
     if let Ok(mut it) = DirWalker::new(&dir) {
         it.walk(move |path| {
-            let path_string = Path::new(&path);
-            let filename = path_string.file_name().unwrap().to_str().unwrap().to_string();
-            let filename_arc: Arc<str> = Arc::from(filename.clone());
-            let path_arc: Arc<str> = Arc::from(path);
+            let path = path.to_owned();
+            let mut map_for_closure = map_for_closure.clone();
+            async move {
+                let path_string = Path::new(&path);
+                let filename = path_string.file_name().unwrap().to_str().unwrap().to_string();
+                let filename_arc: Arc<str> = Arc::from(filename.clone());
+                let path_arc: Arc<str> = Arc::from(path);
 
-            let mut map = map_for_closure.lock().unwrap();
-            if !map.contains_key(&ArcStr(filename_arc.clone())) {
-                let mut v = HashSet::new();
-                v.insert(ArcStr(path_arc.clone()));
-                map.insert(ArcStr(filename_arc.clone()), v);
-            } else {
-                map.get_mut(&ArcStr(filename_arc.clone())).unwrap().insert(ArcStr(path_arc.clone()));
+                let mut map = map_for_closure.lock().unwrap();
+                if !map.contains_key(&ArcStr(filename_arc.clone())) {
+                    let mut v = HashSet::new();
+                    v.insert(ArcStr(path_arc.clone()));
+                    map.insert(ArcStr(filename_arc.clone()), v);
+                } else {
+                    map.get_mut(&ArcStr(filename_arc.clone())).unwrap().insert(ArcStr(path_arc.clone()));
+                }
             }
         }).await;
 
@@ -308,57 +311,73 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
     let limiter = Arc::new(RateLimiter::direct(
         Quota::per_second(NonZeroU32::new(10).unwrap()),
     ));
+
+    let db_for_send_clone = Arc::clone(&db_for_send);
+    let embeddings_clone = Arc::clone(&embeddings);
+    let limiter_clone = Arc::clone(&limiter);
+
     walker.walk(move |path| {
-        let db_clone = Arc::clone(&db_for_send);
-        let path_buf = PathBuf::from(path.clone());
-        println!("Indexing image: {:?}", path);
-
-        if !path_buf.is_file() {
-            return;
-        }
-        if !DirWalker::is_image(&path) {
-            return;
-        }
-        if should_skip_image(db_clone, &path_buf) {
-            return;
-        }
-
-
-        let (tx, rx) = std::sync::mpsc::channel();
-        let limiter = Arc::clone(&limiter);
-        let path_clone = path.to_string();
-        tokio::spawn(async move {
-            limiter.until_ready().await;
-            let results = get_response_by_path(&path_clone).await;
-            tx.send(results).unwrap();
-        });
-        let resp = rx.recv().unwrap();
-        if resp.is_err() {
-            println!("Error: {:?}", resp.err().unwrap());
-            return;
-        }
-        let mut response = resp.unwrap();
-        let mut label_vec = Vec::new();
-        response.labels.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-        for label in response.labels.iter().take(10) {
-            label_vec.push(label.name.clone());
-        }
-
-        let semantic_vector = prepare_semantic_vec(embeddings.clone(), &mut response, &mut label_vec);
-        let semantic_vector = SemanticVec::from_vec(semantic_vector);
-
-        let mut image = Image::new(path.to_string(), path_buf.file_name().unwrap().to_str().unwrap().to_string());
-        image.set_semantic_vector(semantic_vector);
-
-        let mut db = db_for_closure.lock().unwrap();
-        let conn = db.as_mut().unwrap().connection.as_mut().unwrap();
-        match image.save(conn) {
-            Ok(_) => {}
-            Err(e) => {
-                println!("Error: {:?}", e);
+        let db_for_closure = Arc::clone(&db_for_send_clone);
+        let embeddings = embeddings_clone.clone();
+        let limiter = limiter_clone.clone();
+        let path = path.to_owned();
+        async move {
+            let db_for_closure = Arc::clone(&db_for_closure);
+            let path_buf = PathBuf::from(path.clone());
+            let embeddings = embeddings.clone();
+            let limiter = limiter.clone();
+            let db_clone = db_for_closure.clone();
+            if !path_buf.is_file() {
+                return;
             }
+            if !DirWalker::is_image(&path) {
+                return;
+            }
+
+            if should_skip_image(db_clone, &path_buf) {
+                return;
+            }
+
+            let limiter = Arc::clone(&limiter);
+            let path_clone = path.to_string();
+
+
+            limiter.until_ready().await;
+
+            let results = get_response_by_path(&path_clone).await;
+
+
+
+            let resp = results;
+            if resp.is_err() {
+                println!("Error: {:?}", resp.err().unwrap());
+                return;
+            }
+            let mut response = resp.unwrap();
+            let mut label_vec = Vec::new();
+            response.labels.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+            for label in response.labels.iter().take(10) {
+                label_vec.push(label.name.clone());
+            }
+
+            let semantic_vector = prepare_semantic_vec(embeddings.clone(), &mut response, &mut label_vec);
+            let semantic_vector = SemanticVec::from_vec(semantic_vector);
+
+            let mut image = Image::new(path.to_string(), path_buf.file_name().unwrap().to_str().unwrap().to_string());
+            image.set_semantic_vector(semantic_vector);
+
+            let mut db = db_for_closure.lock().unwrap();
+            let conn = db.as_mut().unwrap().connection.as_mut().unwrap();
+            match image.save(conn) {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("Error: {:?}", e);
+                }
+            }
+
         }
     }).await;
+    println!("Indexing finished");
 }
 
 pub fn should_skip_image(mut db: Arc<Mutex<Option<Database>>>, path: &PathBuf) -> bool {
