@@ -1,4 +1,5 @@
 use std::{fs, thread, time};
+use std::future::Future;
 use std::io;
 use std::io::ErrorKind;
 use std::sync::{Arc, Mutex};
@@ -21,7 +22,9 @@ impl DirWalker {
         Ok(Self { dirs: Arc::new(Mutex::new(dirs)) })
     }
 
-    pub async fn walk(&self, f: impl Fn(&str) + Send + Sync + 'static) {
+    pub async fn walk<Fut>(&self, f: impl Fn(&str) -> Fut + Send + Sync + 'static)
+    where Fut: Future<Output=()> + Send + 'static
+    {
         let start = time::Instant::now();
         let mut handles = vec![];
         let f = Arc::new(f);
@@ -42,6 +45,7 @@ impl DirWalker {
                         while dirs.is_empty() {
                             sleeping_threads.fetch_add(1, Ordering::SeqCst);
                             if sleeping_threads.load(Ordering::SeqCst) == num_threads {
+                                println!("All sleep");
                                 cvar.notify_all();
                                 return;
                             }
@@ -81,7 +85,7 @@ impl DirWalker {
                                     if Self::is_symlink(&path) {
                                         return;
                                     };
-                                    callback(path_str);
+                                    callback(path_str).await;
                                 } else if path.is_dir() {
                                     Self::add_dir(lock.clone(), &path, cvar);
                                 }

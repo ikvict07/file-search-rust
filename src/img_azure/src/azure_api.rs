@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::io::{ErrorKind, Read};
+use std::time::Duration;
 use reqwest::{Response};
 use serde::Deserialize;
 use serde_json::Value;
@@ -37,6 +38,7 @@ impl AzureRequest {
         let response = self.client.post(&self.request_adress)
             .headers(self.headers.clone())
             .body(self.img.clone())
+            .timeout(Duration::from_secs(10))
             .send()
             .await;
         match response {
