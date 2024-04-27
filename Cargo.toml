@@ -5,6 +5,8 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.release]
+debug = true
 
 [dependencies]
 file_system = { path = "src/file_system" }
@@ -18,3 +20,5 @@ tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
 manganis = "0.2.2"
 ui_facade = { path = "src/ui_facade" }
 app_props = { path = "src/app_props" }
+
+

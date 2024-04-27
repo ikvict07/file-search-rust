@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::io::{ErrorKind, Read};
 use std::time::Duration;
 use reqwest::{Response};

@@ -1,5 +1,5 @@
 use rusqlite::Connection;
-use crate::semantic_vector::{SemanticVec, SemanticVectorElement};
+use crate::semantic_vector::{SemanticVec};
 
 #[derive(Debug)]
 pub struct Image {
@@ -27,7 +27,7 @@ impl crate::database::Save for Image
 
         println!("Image save");
         self.set_semantic_vector(self.semantic_vector.clone());
-        self.semantic_vector.save(connection);
+        let _ = self.semantic_vector.save(connection);
         Ok(connection.last_insert_rowid() as u32)
     }
 }

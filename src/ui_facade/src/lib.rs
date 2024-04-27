@@ -17,9 +17,8 @@ use vectorization::Embedding;
 use db::image::Image;
 use file_system::dir_walker::DirWalker;
 use governor::{Quota, RateLimiter};
-use im::GenericImageView;
 use img_azure::get_response_by_path;
-use img_azure::azure_api;
+
 
 async fn search_images(dir: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f32)> {
     let embeddings = app.lock().unwrap().embeddings.clone();
@@ -55,17 +54,14 @@ async fn search_images(dir: String, app: Arc<Mutex<App>>) -> Vec<(String, u32, f
         Some(res) => { res }
     }
     );
-    for (path, id, value) in results.iter().take(10) {
-        println!("Id: {}, Value: {}", id, value);
-    }
     println!("Time: {:?}", time.elapsed());
     results.iter().take(10).map(|(path, id, value)| (path.clone(), *id, *value)).collect()
 }
 
 
 fn prepare_semantic_vec(embeddings: Arc<Mutex<Embedding>>, response: &mut AzureResponse, label_vec: &mut Vec<String>) -> Vec<f32> {
-    let mut semantic_vector_caption = (embeddings.lock().unwrap().average_vector(&response.caption));
-    let mut semantic_vector_labels = (embeddings.lock().unwrap().average_vector(&label_vec.join(" ")));
+    let semantic_vector_caption = embeddings.lock().unwrap().average_vector(&response.caption);
+    let semantic_vector_labels = embeddings.lock().unwrap().average_vector(&label_vec.join(" "));
     let mut v = Vec::new();
     for i in 0..semantic_vector_caption.len() {
         v.push(semantic_vector_caption[i] + semantic_vector_labels[i]);
@@ -82,14 +78,14 @@ async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
         let app = app.lock().unwrap();
         app.map.clone()
     };
-    let mut map_for_ser = {
+    let map_for_ser = {
         let app = app.lock().unwrap();
         app.map.clone()
     };
-    if let Ok(mut it) = DirWalker::new(&dir) {
+    if let Ok(it) = DirWalker::new(&dir) {
         it.walk(move |path| {
             let path = path.to_owned();
-            let mut map_for_closure = map_for_closure.clone();
+            let map_for_closure = map_for_closure.clone();
             async move {
                 let path_string = Path::new(&path);
                 let filename = path_string.file_name().unwrap().to_str().unwrap().to_string();
@@ -111,7 +107,7 @@ async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
         let writer = BufWriter::new(file);
 
 
-        let mut map = map_for_ser.lock().unwrap();
+        let map = map_for_ser.lock().unwrap();
         if bincode::serialize_into(writer, &*map).is_err() {
             println!("Error serializing map");
         }
@@ -123,11 +119,9 @@ async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
 pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
     let found_files: &UseState<Vec<String>> = use_state(&cx, || Vec::new());
-    let results_state: &UseState<Vec<(String, u32, f32)>> = use_state(&cx, || Vec::new()); //uselles
+    let _results_state: &UseState<Vec<(String, u32, f32)>> = use_state(&cx, || Vec::new()); //uselles
 
     let files: &Vec<String> = found_files.get();
-
-    let app = cx.props.lock().unwrap();
 
     cx.render(rsx! {
         div {
@@ -157,41 +151,54 @@ pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
 
 pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
-    let found_files: &UseState<Vec<String>> = use_state(&cx, || Vec::new()); //uselles here only to satisfy hook order
+    let _found_files: &UseState<Vec<String>> = use_state(&cx, || Vec::new()); //uselles here only to satisfy hook order
     let results_state: &UseState<Vec<(String, u32, f32)>> = use_state(&cx, || Vec::new());
     let app = cx.props.clone();
+    let is_enabled = {
+        let app = app.lock().unwrap();
+        app.is_image_search_enabled.load(std::sync::atomic::Ordering::Relaxed)
+    };
 
-    cx.render(rsx! {
-        div {
-            h1 { "Image Search Window" }
-            input {
-                value: "{input_value}",
-                oninput: move |event| {
-                    let input = &event.value;
-                    input_value.set(input.to_string());
-                }
-            }
-            button {
-                onclick: move |_| {
-                    let r = on_click_image_search(input_value.get().clone(), cx.props.clone());
-                    results_state.set(r.clone());
-                },
-                "Поиск изображений"
-            }
+    if !is_enabled {
+        cx.render(rsx! {
             div {
-                for (path, id, value) in results_state.get().iter() {
-                    img {
-                        src: &**path,
-                        width: "100",
-                        height: "100"
+                h1 { "Image Search Window" }
+                div { "Image search is disabled" }
+            }
+        })
+    } else {
+        cx.render(rsx! {
+            div {
+                h1 { "Image Search Window" }
+                input {
+                    value: "{input_value}",
+                    oninput: move |event| {
+                        let input = &event.value;
+                        input_value.set(input.to_string());
                     }
-                    div {
-                        format!("Path: {}, Id: {}, Value: {}", path, id, value)
+                }
+                button {
+                    onclick: move |_| {
+                        let r = on_click_image_search(input_value.get().clone(), cx.props.clone());
+                        results_state.set(r.clone());
+                    },
+                    "Поиск изображений"
+                }
+                div {
+                    for (path, id, value) in results_state.get().iter() {
+                        img {
+                            src: &**path,
+                            width: "100",
+                            height: "100"
+                        }
+                        div {
+                            format!("Path: {}, Id: {}, Value: {}", path, id, value)
+                        }
                     }
                 }
             }
-        }
-    })
+        })
+    }
 }
 
 pub fn file_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
@@ -222,13 +229,13 @@ pub fn file_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
 }
 
 pub fn on_click_file_search(filename: String, app: &Arc<Mutex<App>>) -> Vec<String> {
-    let app = app.lock().unwrap();
-    let is_enabled = app.is_prefix_search_enabled.lock().unwrap();
+    let mut app = app.lock().unwrap();
+    let is_enabled = &mut app.is_prefix_search_enabled;
     let mut result = Vec::new();
-    if *(is_enabled.deref()) { // Prefix search
+    if is_enabled.load(core::sync::atomic::Ordering::Relaxed) { // Prefix search
         if let SomeTrie::Trie(trie) = app.trie.lock().unwrap().deref() {
             let found_names = trie.predictive_search(filename.clone().as_bytes());
-            for (name) in found_names {
+            for name in found_names {
                 let map_lock = app.map.lock().unwrap();
                 for file in map_lock.get(&ArcStr(Arc::from(String::from_utf8(name.clone()).unwrap()))).unwrap() {
                     result.push(String::from_utf8(name.clone()).unwrap() + ": " + &*file.0.to_string());
@@ -258,7 +265,7 @@ pub fn on_click_image_search(prompt: String, app: Arc<Mutex<App>>) -> Vec<(Strin
     let results = rx.recv().unwrap();
     for (path, id, value) in results.iter() {
         let is_windows_os = cfg!(target_os = "windows");
-        let mut src = String::from("");
+        let src;
         if is_windows_os {
             src = format!("/{}", path);
         } else {
@@ -272,28 +279,41 @@ pub fn on_click_image_search(prompt: String, app: Arc<Mutex<App>>) -> Vec<(Strin
 pub fn image_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let input_value = use_state(&cx, || "".to_string());
     let app = cx.props.clone();
-    cx.render(rsx! {
-        div {
-            h1 { "Image index window" }
-            input {
-                value: "{input_value}",
-                oninput: move |event| {
-                    let input = &event.value;
-                    input_value.set(input.to_string());
+    let is_enabled = {
+        let app = app.lock().unwrap();
+        app.is_image_search_enabled.load(std::sync::atomic::Ordering::Relaxed)
+    };
+    if !is_enabled {
+        cx.render(rsx! {
+            div {
+                h1 { "Image index window" }
+                div { "Image search is disabled" }
+            }
+        })
+    } else {
+        cx.render(rsx! {
+            div {
+                h1 { "Image index window" }
+                input {
+                    value: "{input_value}",
+                    oninput: move |event| {
+                        let input = &event.value;
+                        input_value.set(input.to_string());
+                    }
+                }
+                button {
+                    onclick: move |_| {
+                        let dir = input_value.get().clone();
+                        let app_clone = app.clone();
+                        tokio::spawn(async move {
+                            index_images(dir, app_clone).await;
+                        });
+                    },
+                    "Индексировать директорию"
                 }
             }
-            button {
-                onclick: move |_| {
-                    let dir = input_value.get().clone();
-                    let app_clone = app.clone();
-                    tokio::spawn(async move {
-                        index_images(dir, app_clone).await;
-                    });
-                },
-                "Индексировать директорию"
-            }
-        }
-    })
+        })
+    }
 }
 
 
@@ -307,7 +327,6 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
         let app = app.lock().unwrap();
         app.db.clone()
     };
-    let db_for_closure = Arc::clone(&db);
     let db_for_send = db.clone();
     let limiter = Arc::new(RateLimiter::direct(
         Quota::per_second(NonZeroU32::new(10).unwrap()),
@@ -379,9 +398,9 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
     println!("Indexing finished");
 }
 
-pub fn should_skip_image(mut db: Arc<Mutex<Option<Database>>>, path: &PathBuf) -> bool {
+pub fn should_skip_image(db: Arc<Mutex<Option<Database>>>, path: &PathBuf) -> bool {
     let mut flag = false;
-    if (path.is_file()) {
+    if path.is_file() {
         if DirWalker::is_image(path.to_str().unwrap()) {
             let res = im::image_dimensions(path);
             if res.is_err() {
