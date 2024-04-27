@@ -1,8 +1,8 @@
 use std::mem::forget;
-use rusqlite::{Connection, ErrorCode};
+use rusqlite::{Connection};
 use crate::image::Image;
 use crate::semantic_vector::{SemanticVec, SemanticVectorElement};
-use fallible_iterator::FallibleIterator;
+
 
 #[derive(Debug)]
 pub struct Database {
@@ -78,7 +78,7 @@ pub trait Save {
 
 impl Database {
     pub fn save<T: Save>(&mut self, item: &mut T) {
-        item.save(self.connection.as_mut().unwrap());
+        let _ = item.save(self.connection.as_mut().unwrap());
     }
 
     pub fn save_all<T: Save>(&mut self, items: &mut Vec<T>) {
@@ -91,7 +91,7 @@ impl Database {
         let mut statement = self.connection.as_ref().unwrap()
             .prepare("SELECT id, path, title FROM images WHERE path = ?1")
             .expect("SELECT id, path, title FROM images WHERE path = ?1");
-        let mut rows = statement.query(&[&path]);
+        let rows = statement.query(&[&path]);
 
         if rows.is_err() {
             return None;
@@ -177,7 +177,7 @@ impl Database {
         let mut statement = self.connection.as_ref().unwrap()
             .prepare("SELECT id FROM images WHERE path = ?1")
             .expect("SELECT id FROM images WHERE path = ?1");
-        let mut rows = statement.query(&[&path]);
+        let rows = statement.query(&[&path]);
         if rows.is_err() {
             return Err(rows.err().unwrap());
         }
@@ -190,7 +190,7 @@ impl Database {
         let mut statement = self.connection.as_ref().unwrap()
             .prepare("SELECT id FROM images")
             .expect("");
-        let mut rows = statement.query(());
+        let rows = statement.query(());
         if rows.is_err() {
             return vec![];
         }
