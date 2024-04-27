@@ -1,11 +1,8 @@
-use std::error::Error;
 use rust2vec::prelude::*;
 use std::fs::File;
 use std::io::BufReader;
-use ndarray::Array1;
 use std::time::Instant;
 use memmap::Mmap;
-
 
 pub struct Embedding {
     embeddings: Embeddings<SimpleVocab, NdArray>,
@@ -14,7 +11,7 @@ pub struct Embedding {
 impl Embedding {
     pub fn new() -> Self {
         Embedding {
-            embeddings: Embeddings::new(None, SimpleVocab::new(vec!["<UNK>".to_owned()]), NdArray(Default::default()), )
+            embeddings: Embeddings::new(None, SimpleVocab::new(vec!["<UNK>".to_owned()]), NdArray(Default::default()))
         }
     }
 
@@ -65,8 +62,6 @@ impl Embedding {
     }
 
     pub fn cosine_similarity(vector1: &[f32], vector2: &[f32]) -> f32 {
-        let start = Instant::now();
-
         let dot_product: f32 = vector1.iter().zip(vector2).map(|(a, b)| a * b).sum();
         let magnitude1: f32 = vector1.iter().map(|a| a.powi(2)).sum::<f32>().sqrt();
         let magnitude2: f32 = vector2.iter().map(|a| a.powi(2)).sum::<f32>().sqrt();
