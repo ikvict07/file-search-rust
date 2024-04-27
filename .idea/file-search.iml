@@ -13,6 +13,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src/vectorization/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/arc_str/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/ui_facade/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/.idea/dataSources" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
