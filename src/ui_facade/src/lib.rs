@@ -84,11 +84,11 @@ async fn index_directory(dir: String, app: Arc<Mutex<App>>) {
     };
     if let Ok(it) = DirWalker::new(&dir) {
         it.walk(move |path| {
-            let path = path.to_owned();
+            let path = path.to_owned().replace("\\", "/");
             let map_for_closure = map_for_closure.clone();
             async move {
                 let path_string = Path::new(&path);
-                let filename = path_string.file_name().unwrap().to_str().unwrap().to_string();
+                let filename = path_string.file_name().unwrap().to_str().unwrap().to_string().replace("\\", "/");
                 let filename_arc: Arc<str> = Arc::from(filename.clone());
                 let path_arc: Arc<str> = Arc::from(path);
 
@@ -125,27 +125,103 @@ pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
 
     cx.render(rsx! {
         div {
-            h1 { "File Search Window" }
-            input {
-                value: "{input_value}",
-                oninput: move |event| {
-                    let input = &event.value;
-                    input_value.set(input.to_string());
+            class: "hero_area",
+            style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
+            section {
+                class: "experience_section layout_padding-top layout_padding2-bottom",
+                div {
+                    class: "container",
+                    style: "flex-wrap: wrap;",
+                    div {
+                        class: "row",
+                        div {
+                            div {
+                                class: "col-md-12",
+                                div {
+                                    style: "display: flex; justify-content: center; align-items: center;",
+                                    div {
+                                        class: "detail-box",
+                                        p { "File Search" }
+                                    }
+                                }
+                            }
+                            div {
+                                class: "col-md-12",
+                                div {
+                                    style: "display: flex; justify-content: center; align-items: center;",
+                                    input {
+                                        placeholder: "Filename or prefix",
+                                        value: "{input_value}",
+                                        oninput: move |event| {
+                                            let input = &event.value;
+                                            input_value.set(input.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                            div {
+                                class: "col-md-12",
+                                div {
+                                    class: "detail-box",
+                                    style: "display: flex; justify-content: center; align-items: center;",
+
+                                    div {
+                                        class: "btn-box",
+                                        a {
+                                            class: "btn-3",
+                                            onclick: move |_| {
+                                                let results= on_click_file_search(input_value.get().clone(), cx.props);
+                                                found_files.set(results);
+                                            },
+                                            "Search"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
                 }
             }
-            button {
-                onclick: move |_| {
-                    let results= on_click_file_search(input_value.get().clone(), cx.props);
-                    found_files.set(results);
-                },
-                "Поиск файлов"
-            }
-            div {
-                for file in files {
-                    div { file.clone() }
+            section {
+                class: "experience_section layout_padding-top layout_padding2-bottom",
+                div {
+                    class: "container",
+                    style: "flex-wrap: wrap;",
+                    div {
+                        class: "detail-box",
+                        for file in files {
+                            div {
+                                class: "file-p",
+                                file.clone()
+                            }
+                        }
+                    }
                 }
             }
         }
+        // div {
+        //     h1 { "File Search Window" }
+        //     input {
+        //         value: "{input_value}",
+        //         oninput: move |event| {
+        //             let input = &event.value;
+        //             input_value.set(input.to_string());
+        //         }
+        //     }
+        //     button {
+        //         onclick: move |_| {
+        //             let results= on_click_file_search(input_value.get().clone(), cx.props);
+        //             found_files.set(results);
+        //         },
+        //         "Поиск файлов"
+        //     }
+        //     div {
+        //         for file in files {
+        //             div { file.clone() }
+        //         }
+        //     }
+        // }
     })
 }
 
@@ -162,41 +238,153 @@ pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     if !is_enabled {
         cx.render(rsx! {
             div {
-                h1 { "Image Search Window" }
-                div { "Image search is disabled" }
+                class: "hero_area",
+                style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
+                section {
+                    class: "experience_section layout_padding-top layout_padding2-bottom",
+                    div {
+                        class: "container",
+                        style: "flex-wrap: wrap;",
+                        div {
+                            class: "row",
+                            div {
+                                div {
+                                    class: "col-md-12",
+                                    div {
+                                        style: "display: flex; justify-content: center; align-items: center;",
+                                        div {
+                                            class: "detail-box",
+                                            p {
+                                                style: "display: flex; justify-content: center; align-items: center;",
+                                                "Image Search"
+                                            }
+                                            p {
+                                                style: "display: flex; justify-content: center; align-items: center;",
+                                                "Enable this option on Start Window"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         })
     } else {
         cx.render(rsx! {
             div {
-                h1 { "Image Search Window" }
-                input {
-                    value: "{input_value}",
-                    oninput: move |event| {
-                        let input = &event.value;
-                        input_value.set(input.to_string());
-                    }
-                }
-                button {
-                    onclick: move |_| {
-                        let r = on_click_image_search(input_value.get().clone(), cx.props.clone());
-                        results_state.set(r.clone());
-                    },
-                    "Поиск изображений"
-                }
-                div {
-                    for (path, id, value) in results_state.get().iter() {
-                        img {
-                            src: &**path,
-                            width: "100",
-                            height: "100"
-                        }
+                class: "hero_area",
+                style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
+                section {
+                    class: "experience_section layout_padding-top layout_padding2-bottom",
+                    div {
+                        class: "container",
+                        style: "flex-wrap: wrap;",
                         div {
-                            format!("Path: {}, Id: {}, Value: {}", path, id, value)
+                            class: "row",
+                            div {
+                                div {
+                                    class: "col-md-12",
+                                    div {
+                                        style: "display: flex; justify-content: center; align-items: center;",
+                                        div {
+                                            class: "detail-box",
+                                            p { "Image Search" }
+                                        }
+                                    }
+                                }
+                                div {
+                                    class: "col-md-12",
+                                    div {
+                                        style: "display: flex; justify-content: center; align-items: center;",
+                                        input {
+                                            placeholder: "Describe photo to search",
+                                            value: "{input_value}",
+                                            oninput: move |event| {
+                                                let input = &event.value;
+                                                input_value.set(input.to_string());
+                                            }
+                                        }
+                                    }
+                                }
+                                div {
+                                    class: "col-md-12",
+                                    div {
+                                        class: "detail-box",
+                                        style: "display: flex; justify-content: center; align-items: center;",
+
+                                        div {
+                                            class: "btn-box",
+                                            a {
+                                                class: "btn-3",
+                                                onclick: move |_| {
+                                                    let r = on_click_image_search(input_value.get().clone(), cx.props.clone());
+                                                    results_state.set(r.clone());
+                                                },
+                                                "Find Photo"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
+                }
+                section {
+                    class: "experience_section layout_padding-top layout_padding2-bottom",
+                    div {
+                        class: "container",
+                        style: "flex-wrap: wrap;",
+                        div {
+                            class: "detail-box",
+                            for (path, id, value) in results_state.get().iter() {
+                                div {
+                                    class: "file-p",
+                                    img {
+                                        src: &**path,
+                                        width: "200",
+                                        height: "200"
+                                    }
+                                    div {
+                                        format!("Path: {}, Id: {}, Value: {}", path, id, value)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                 }
             }
+            // div {
+            //     h1 { "Image Search Window" }
+            //     input {
+            //         value: "{input_value}",
+            //         oninput: move |event| {
+            //             let input = &event.value;
+            //             input_value.set(input.to_string());
+            //         }
+            //     }
+            //     button {
+            //         onclick: move |_| {
+            //             let r = on_click_image_search(input_value.get().clone(), cx.props.clone());
+            //             results_state.set(r.clone());
+            //         },
+            //         "Поиск изображений"
+            //     }
+            //     div {
+            //         for (path, id, value) in results_state.get().iter() {
+            //             img {
+            //                 src: &**path,
+            //                 width: "100",
+            //                 height: "100"
+            //             }
+            //             div {
+            //                 format!("Path: {}, Id: {}, Value: {}", path, id, value)
+            //             }
+            //         }
+            //     }
+            // }
         })
     }
 }
@@ -206,25 +394,87 @@ pub fn file_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let app = cx.props.clone();
     cx.render(rsx! {
         div {
-            h1 { "Окно индексации файлов" }
-            input {
-                value: "{input_value}",
-                oninput: move |event| {
-                    let input = &event.value;
-                    input_value.set(input.to_string());
+            class: "hero_area",
+            style: "display: flex; justify-content: center; align-items: center;",
+            section {
+                class: "experience_section layout_padding-top layout_padding2-bottom",
+                div {
+                    class: "container",
+                    div {
+                        class: "row",
+                        div {
+                            div {
+                                class: "col-md-12",
+                                div {
+                                    style: "display: flex; justify-content: center; align-items: center;",
+                                    div {
+                                        class: "detail-box",
+                                        p { "Index" }
+                                    }
+                                }
+                            }
+                            div {
+                                class: "col-md-12",
+                                div {
+                                    style: "display: flex; justify-content: center; align-items: center;",
+                                    input {
+                                        placeholder: "/path/to/directory",
+                                        value: "{input_value}",
+                                        oninput: move |event| {
+                                            let input = &event.value;
+                                            input_value.set(input.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                            div {
+                                class: "col-md-12",
+                                div {
+                                    class: "detail-box",
+                                    style: "display: flex; justify-content: center; align-items: center;",
+
+                                    div {
+                                        class: "btn-box",
+                                        a {
+                                            class: "btn-3",
+                                            onclick: move |_| {
+                                                let dir = input_value.get().clone().replace("\\", "/");
+                                                let app_clone = app.clone();
+                                                tokio::spawn(async move {
+                                                    index_directory(dir, app_clone).await;
+                                                });
+                                            },
+                                            "Index Directory"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
                 }
             }
-            button {
-                onclick: move |_| {
-                    let dir = input_value.get().clone();
-                    let app_clone = app.clone();
-                    tokio::spawn(async move {
-                        index_directory(dir, app_clone).await;
-                    });
-                },
-                "Индексировать директорию"
-            }
         }
+        // div {
+        //     h1 { "Окно индексации файлов" }
+        //     input {
+        //         value: "{input_value}",
+        //         oninput: move |event| {
+        //             let input = &event.value;
+        //             input_value.set(input.to_string());
+        //         }
+        //     }
+        //     button {
+        //         onclick: move |_| {
+        //             let dir = input_value.get().clone();
+        //             let app_clone = app.clone();
+        //             tokio::spawn(async move {
+        //                 index_directory(dir, app_clone).await;
+        //             });
+        //         },
+        //         "Индексировать директорию"
+        //     }
+        // }
     })
 }
 
@@ -286,32 +536,123 @@ pub fn image_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     if !is_enabled {
         cx.render(rsx! {
             div {
-                h1 { "Image index window" }
-                div { "Image search is disabled" }
+                class: "hero_area",
+                style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
+                section {
+                    class: "experience_section layout_padding-top layout_padding2-bottom",
+                    div {
+                        class: "container",
+                        style: "flex-wrap: wrap;",
+                        div {
+                            class: "row",
+                            div {
+                                div {
+                                    class: "col-md-12",
+                                    div {
+                                        style: "display: flex; justify-content: center; align-items: center;",
+                                        div {
+                                            class: "detail-box",
+                                            p {
+                                                style: "display: flex; justify-content: center; align-items: center;",
+                                                "Image Indexing"
+                                            }
+                                            p {
+                                                style: "display: flex; justify-content: center; align-items: center;",
+                                                "Enable this option on Start Window"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         })
     } else {
         cx.render(rsx! {
             div {
-                h1 { "Image index window" }
-                input {
-                    value: "{input_value}",
-                    oninput: move |event| {
-                        let input = &event.value;
-                        input_value.set(input.to_string());
+                class: "hero_area",
+                style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
+                section {
+                    class: "experience_section layout_padding-top layout_padding2-bottom",
+                    div {
+                        class: "container",
+                        style: "flex-wrap: wrap;",
+                        div {
+                            class: "row",
+                            div {
+                                div {
+                                    class: "col-md-12",
+                                    div {
+                                        style: "display: flex; justify-content: center; align-items: center;",
+                                        div {
+                                            class: "detail-box",
+                                            p { "Image Indexing" }
+                                        }
+                                    }
+                                }
+                                div {
+                                    class: "col-md-12",
+                                    div {
+                                        style: "display: flex; justify-content: center; align-items: center;",
+                                        input {
+                                            placeholder: "/path/to/directory",
+                                            value: "{input_value}",
+                                            oninput: move |event| {
+                                                let input = &event.value;
+                                                input_value.set(input.to_string());
+                                            }
+                                        }
+                                    }
+                                }
+                                div {
+                                    class: "col-md-12",
+                                    div {
+                                        class: "detail-box",
+                                        style: "display: flex; justify-content: center; align-items: center;",
+
+                                        div {
+                                            class: "btn-box",
+                                            a {
+                                                class: "btn-3",
+                                                onclick: move |_| {
+                                                    let dir = input_value.get().clone().replace("\\", "/");
+                                                    let app_clone = app.clone();
+                                                    tokio::spawn(async move {
+                                                        index_images(dir, app_clone).await;
+                                                    });
+                                                },
+                                                "Find Photo"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-                button {
-                    onclick: move |_| {
-                        let dir = input_value.get().clone();
-                        let app_clone = app.clone();
-                        tokio::spawn(async move {
-                            index_images(dir, app_clone).await;
-                        });
-                    },
-                    "Индексировать директорию"
-                }
             }
+            // div {
+            //     h1 { "Image index window" }
+            //     input {
+            //         value: "{input_value}",
+            //         oninput: move |event| {
+            //             let input = &event.value;
+            //             input_value.set(input.to_string());
+            //         }
+            //     }
+            //     button {
+            //         onclick: move |_| {
+            //             let dir = input_value.get().clone();
+            //             let app_clone = app.clone();
+            //             tokio::spawn(async move {
+            //                 index_images(dir, app_clone).await;
+            //             });
+            //         },
+            //         "Индексировать директорию"
+            //     }
+            // }
         })
     }
 }

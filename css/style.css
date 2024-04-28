@@ -2,6 +2,8 @@ body {
   font-family: 'Poppins', sans-serif;
   color: #0c0c0c;
   background-color: #ffffff;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .layout_padding {
@@ -913,4 +915,21 @@ a:focus {
 }
 /*# sourceMappingURL=style.css.map */
 
+.experience_section .detail-box p {
+  margin-top: 20px;
+  color: #00ffff;
+  font-size: 20px;
+}
 
+body::-webkit-scrollbar {
+  display: none;
+}
+::-webkit-scrollbar {
+  display: none;
+}
+
+.experience_section .detail-box .file-p {
+  margin-top: 20px;
+  color: #ffffff;
+  font-size: 14px;
+}
