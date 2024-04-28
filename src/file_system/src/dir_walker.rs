@@ -56,6 +56,7 @@ impl DirWalker {
                         dirs.pop()
                     };
                     if let Some(dir) = dir {
+                        let dir = dir.replace("\\", "/");
                         let dir_entries = tokio::fs::read_dir(dir).await;
                         if dir_entries.is_err() {
                             continue;
@@ -78,7 +79,7 @@ impl DirWalker {
                                     return;
                                 };
                                 if path.is_file() {
-                                    let path_str = path.to_str().unwrap();
+                                    let path_str = &*path.to_str().unwrap().replace("\\", "/");
 
                                     if Self::is_symlink(&path) {
                                         return;
