@@ -125,103 +125,64 @@ pub fn file_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
 
     cx.render(rsx! {
         div {
-            class: "hero_area",
-            style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
-            section {
-                class: "experience_section layout_padding-top layout_padding2-bottom",
-                div {
-                    class: "container",
-                    style: "flex-wrap: wrap;",
-                    div {
-                        class: "row",
-                        div {
-                            div {
-                                class: "col-md-12",
-                                div {
-                                    style: "display: flex; justify-content: center; align-items: center;",
-                                    div {
-                                        class: "detail-box",
-                                        p { "File Search" }
-                                    }
-                                }
-                            }
-                            div {
-                                class: "col-md-12",
-                                div {
-                                    style: "display: flex; justify-content: center; align-items: center;",
-                                    input {
-                                        placeholder: "Filename or prefix",
-                                        value: "{input_value}",
-                                        oninput: move |event| {
-                                            let input = &event.value;
-                                            input_value.set(input.to_string());
-                                        }
-                                    }
-                                }
-                            }
-                            div {
-                                class: "col-md-12",
-                                div {
-                                    class: "detail-box",
-                                    style: "display: flex; justify-content: center; align-items: center;",
+            class: "container centered",
 
-                                    div {
-                                        class: "btn-box",
-                                        a {
-                                            class: "btn-3",
-                                            onclick: move |_| {
-                                                let results= on_click_file_search(input_value.get().clone(), cx.props);
-                                                found_files.set(results);
-                                            },
-                                            "Search"
-                                        }
-                                    }
-                                }
+            div {
+                class: "row",
+                div {
+                    class: "col-12 d-flex justify-content-center align-items-center",
+                    p { "File Search" },
+                }
+            }
+            div {
+                class: "row",
+                div {
+                    class: "col-12 d-flex justify-content-center align-items-center",
+                    div {
+                        style: "display: flex; justify-content: center; align-items: center;",
+                        input {
+                            placeholder: "Filename or prefix",
+                            value: "{input_value}",
+                            oninput: move |event| {
+                                let input = &event.value;
+                                input_value.set(input.to_string());
                             }
                         }
-
                     }
                 }
             }
-            section {
-                class: "experience_section layout_padding-top layout_padding2-bottom",
+            div {
+                class: "row",
                 div {
-                    class: "container",
-                    style: "flex-wrap: wrap;",
+                    class: "col-12 d-flex justify-content-center align-items-center",
                     div {
-                        class: "detail-box",
-                        for file in files {
-                            div {
-                                class: "file-p",
-                                file.clone()
-                            }
+                        class: "menu-btn1",
+                        style: "width: 100px",
+                        onclick: move |_| {
+                            let results= on_click_file_search(input_value.get().clone(), cx.props);
+                            found_files.set(results);
+                        },
+                        "Search"
+                    }
+                }
+            }
+
+        }
+        div {
+            class: "file-container",
+            div {
+                class: "row",
+                for file in files {
+                    div {
+                        class: "col-12",
+                        p {
+                            file.clone()
                         }
                     }
                 }
             }
         }
-        // div {
-        //     h1 { "File Search Window" }
-        //     input {
-        //         value: "{input_value}",
-        //         oninput: move |event| {
-        //             let input = &event.value;
-        //             input_value.set(input.to_string());
-        //         }
-        //     }
-        //     button {
-        //         onclick: move |_| {
-        //             let results= on_click_file_search(input_value.get().clone(), cx.props);
-        //             found_files.set(results);
-        //         },
-        //         "Поиск файлов"
-        //     }
-        //     div {
-        //         for file in files {
-        //             div { file.clone() }
-        //         }
-        //     }
-        // }
+
     })
 }
 
@@ -238,32 +199,32 @@ pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     if !is_enabled {
         cx.render(rsx! {
             div {
-                class: "hero_area",
-                style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
-                section {
-                    class: "experience_section layout_padding-top layout_padding2-bottom",
+                class: "container centered",
+
+                div {
+                    style: "flex-wrap: wrap;",
                     div {
-                        class: "container",
-                        style: "flex-wrap: wrap;",
+                        class: "row",
                         div {
-                            class: "row",
+                            class: "col-md-12",
                             div {
-                                div {
-                                    class: "col-md-12",
-                                    div {
-                                        style: "display: flex; justify-content: center; align-items: center;",
-                                        div {
-                                            class: "detail-box",
-                                            p {
-                                                style: "display: flex; justify-content: center; align-items: center;",
-                                                "Image Search"
-                                            }
-                                            p {
-                                                style: "display: flex; justify-content: center; align-items: center;",
-                                                "Enable this option on Start Window"
-                                            }
-                                        }
-                                    }
+                                style: "display: flex; justify-content: center; align-items: center;",
+                                p {
+                                    style: "display: flex; justify-content: center; align-items: center;",
+                                    "Image Search"
+                                }
+                            }
+                        }
+                    }
+                    div {
+                        class: "row",
+                        div {
+                            class: "col-md-12",
+                            div {
+                                style: "display: flex; justify-content: center; align-items: center;",
+                                p {
+                                    style: "display: flex; justify-content: center; align-items: center;",
+                                    "Enable this option on Start Window"
                                 }
                             }
                         }
@@ -274,86 +235,64 @@ pub fn image_search(cx: Scope<Arc<Mutex<App>>>) -> Element {
     } else {
         cx.render(rsx! {
             div {
-                class: "hero_area",
-                style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
-                section {
-                    class: "experience_section layout_padding-top layout_padding2-bottom",
-                    div {
-                        class: "container",
-                        style: "flex-wrap: wrap;",
-                        div {
-                            class: "row",
-                            div {
-                                div {
-                                    class: "col-md-12",
-                                    div {
-                                        style: "display: flex; justify-content: center; align-items: center;",
-                                        div {
-                                            class: "detail-box",
-                                            p { "Image Search" }
-                                        }
-                                    }
-                                }
-                                div {
-                                    class: "col-md-12",
-                                    div {
-                                        style: "display: flex; justify-content: center; align-items: center;",
-                                        input {
-                                            placeholder: "Describe photo to search",
-                                            value: "{input_value}",
-                                            oninput: move |event| {
-                                                let input = &event.value;
-                                                input_value.set(input.to_string());
-                                            }
-                                        }
-                                    }
-                                }
-                                div {
-                                    class: "col-md-12",
-                                    div {
-                                        class: "detail-box",
-                                        style: "display: flex; justify-content: center; align-items: center;",
+                class: "container centered",
 
-                                        div {
-                                            class: "btn-box",
-                                            a {
-                                                class: "btn-3",
-                                                onclick: move |_| {
-                                                    let r = on_click_image_search(input_value.get().clone(), cx.props.clone());
-                                                    results_state.set(r.clone());
-                                                },
-                                                "Find Photo"
-                                            }
-                                        }
-                                    }
+                div {
+                    class: "row",
+                    div {
+                        class: "col-12 d-flex justify-content-center align-items-center",
+                        p { "Image Search" }
+                    }
+                    div {
+                        class: "col-12",
+                        div {
+                            style: "display: flex; justify-content: center; align-items: center;",
+                            input {
+                                placeholder: "Describe photo to search",
+                                value: "{input_value}",
+                                oninput: move |event| {
+                                    let input = &event.value;
+                                    input_value.set(input.to_string());
                                 }
+                            }
+                        }
+                    }
+                    div {
+                        class: "col-12",
+                        div {
+                            style: "display: flex; justify-content: center; align-items: center;",
+                            div {
+                                class: "menu-btn1",
+                                onclick: move |_| {
+                                    let r = on_click_image_search(input_value.get().clone(), cx.props.clone());
+                                    results_state.set(r.clone());
+                                },
+                                "Find Photo"
                             }
                         }
                     }
                 }
-                section {
-                    class: "experience_section layout_padding-top layout_padding2-bottom",
-                    div {
-                        class: "container",
-                        style: "flex-wrap: wrap;",
+            }
+            div {
+                class: "file-container",
+                div {
+                    class: "row",
+                    for (path, id, value) in results_state.get().iter() {
                         div {
-                            class: "detail-box",
-                            for (path, id, value) in results_state.get().iter() {
+                            class: "col-12",
+                            div {
+                                class: "file-p",
+                                img {
+                                    src: &**path,
+                                    width: "200",
+                                    height: "200"
+                                }
                                 div {
-                                    class: "file-p",
-                                    img {
-                                        src: &**path,
-                                        width: "200",
-                                        height: "200"
-                                    }
-                                    div {
-                                        format!("Path: {}, Id: {}, Value: {}", path, id, value)
-                                    }
+                                    format!("Path: {}, Id: {}, Value: {}", path, id, value)
                                 }
                             }
                         }
                     }
-
                 }
             }
             // div {
@@ -394,67 +333,111 @@ pub fn file_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     let app = cx.props.clone();
     cx.render(rsx! {
         div {
-            class: "hero_area",
-            style: "display: flex; justify-content: center; align-items: center;",
-            section {
-                class: "experience_section layout_padding-top layout_padding2-bottom",
+            class: "container centered",
+
+            div {
+                class: "row",
                 div {
-                    class: "container",
+                    class: "col-12",
                     div {
-                        class: "row",
-                        div {
-                            div {
-                                class: "col-md-12",
-                                div {
-                                    style: "display: flex; justify-content: center; align-items: center;",
-                                    div {
-                                        class: "detail-box",
-                                        p { "Index" }
-                                    }
-                                }
-                            }
-                            div {
-                                class: "col-md-12",
-                                div {
-                                    style: "display: flex; justify-content: center; align-items: center;",
-                                    input {
-                                        placeholder: "/path/to/directory",
-                                        value: "{input_value}",
-                                        oninput: move |event| {
-                                            let input = &event.value;
-                                            input_value.set(input.to_string());
-                                        }
-                                    }
-                                }
-                            }
-                            div {
-                                class: "col-md-12",
-                                div {
-                                    class: "detail-box",
-                                    style: "display: flex; justify-content: center; align-items: center;",
-
-                                    div {
-                                        class: "btn-box",
-                                        a {
-                                            class: "btn-3",
-                                            onclick: move |_| {
-                                                let dir = input_value.get().clone().replace("\\", "/");
-                                                let app_clone = app.clone();
-                                                tokio::spawn(async move {
-                                                    index_directory(dir, app_clone).await;
-                                                });
-                                            },
-                                            "Index Directory"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
+                        style: "display: flex; justify-content: center; align-items: center;",
+                        p { "Index" }
                     }
                 }
+                div {
+                    class: "col-md-12",
+                    div {
+                        style: "display: flex; justify-content: center; align-items: center;",
+                        input {
+                            placeholder: "/path/to/directory",
+                            value: "{input_value}",
+                            oninput: move |event| {
+                                let input = &event.value;
+                                input_value.set(input.to_string());
+                            }
+                        }
+                    }
+                }
+                div {
+                    class: "col-md-12",
+                    div {
+                        style: "display: flex; justify-content: center; align-items: center;",
+                        div {
+                            class: "menu-btn1",
+                            style: "width: auto",
+                            onclick: move |_| {
+                                let dir = input_value.get().clone().replace("\\", "/");
+                                let app_clone = app.clone();
+                                tokio::spawn(async move {
+                                    index_directory(dir, app_clone).await;
+                                });
+                            },
+                            "Index Directory"
+                        }
+                    }
+                }
+
             }
         }
+        // div {
+        //     class: "hero_area",
+        //     style: "display: flex; justify-content: center; align-items: center;",
+        //     section {
+        //         class: "experience_section layout_padding-top layout_padding2-bottom",
+        //         div {
+        //             class: "container",
+        //             div {
+        //                 class: "row",
+        //                 div {
+        //                     div {
+        //                         class: "col-md-12",
+        //                         div {
+        //                             style: "display: flex; justify-content: center; align-items: center;",
+        //                                 p { "Index" }
+        //                         }
+        //                     }
+        //                     div {
+        //                         class: "col-md-12",
+        //                         div {
+        //                             style: "display: flex; justify-content: center; align-items: center;",
+        //                             input {
+        //                                 placeholder: "/path/to/directory",
+        //                                 value: "{input_value}",
+        //                                 oninput: move |event| {
+        //                                     let input = &event.value;
+        //                                     input_value.set(input.to_string());
+        //                                 }
+        //                             }
+        //                         }
+        //                     }
+        //                     div {
+        //                         class: "col-md-12",
+        //                         div {
+        //                             class: "detail-box",
+        //                             style: "display: flex; justify-content: center; align-items: center;",
+        //
+        //                             div {
+        //                                 class: "btn-box",
+        //                                 a {
+        //                                     class: "btn-3",
+        //                                     onclick: move |_| {
+        //                                         let dir = input_value.get().clone().replace("\\", "/");
+        //                                         let app_clone = app.clone();
+        //                                         tokio::spawn(async move {
+        //                                             index_directory(dir, app_clone).await;
+        //                                         });
+        //                                     },
+        //                                     "Index Directory"
+        //                                 }
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //
+        //             }
+        //         }
+        //     }
+        // }
         // div {
         //     h1 { "Окно индексации файлов" }
         //     input {
@@ -536,32 +519,32 @@ pub fn image_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     if !is_enabled {
         cx.render(rsx! {
             div {
-                class: "hero_area",
-                style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
-                section {
-                    class: "experience_section layout_padding-top layout_padding2-bottom",
+                class: "container centered",
+
+                div {
+                    style: "flex-wrap: wrap;",
                     div {
-                        class: "container",
-                        style: "flex-wrap: wrap;",
+                        class: "row",
                         div {
-                            class: "row",
+                            class: "col-md-12",
                             div {
-                                div {
-                                    class: "col-md-12",
-                                    div {
-                                        style: "display: flex; justify-content: center; align-items: center;",
-                                        div {
-                                            class: "detail-box",
-                                            p {
-                                                style: "display: flex; justify-content: center; align-items: center;",
-                                                "Image Indexing"
-                                            }
-                                            p {
-                                                style: "display: flex; justify-content: center; align-items: center;",
-                                                "Enable this option on Start Window"
-                                            }
-                                        }
-                                    }
+                                style: "display: flex; justify-content: center; align-items: center;",
+                                p {
+                                    style: "display: flex; justify-content: center; align-items: center;",
+                                    "Image Indexing"
+                                }
+                            }
+                        }
+                    }
+                    div {
+                        class: "row",
+                        div {
+                            class: "col-md-12",
+                            div {
+                                style: "display: flex; justify-content: center; align-items: center;",
+                                p {
+                                    style: "display: flex; justify-content: center; align-items: center;",
+                                    "Enable this option on Start Window"
                                 }
                             }
                         }
@@ -572,87 +555,49 @@ pub fn image_index(cx: Scope<Arc<Mutex<App>>>) -> Element {
     } else {
         cx.render(rsx! {
             div {
-                class: "hero_area",
-                style: "display: flex; justify-content: center; align-items: center; flex-wrap: wrap;",
-                section {
-                    class: "experience_section layout_padding-top layout_padding2-bottom",
+                class: "container centered",
+                div {
+                    class: "row",
                     div {
-                        class: "container",
-                        style: "flex-wrap: wrap;",
+                        class: "col-12",
                         div {
-                            class: "row",
+                            style: "display: flex; justify-content: center; align-items: center;",
+                                p { "Image Indexing" }
+                        }
+                        div {
+                            class: "col-12",
                             div {
-                                div {
-                                    class: "col-md-12",
-                                    div {
-                                        style: "display: flex; justify-content: center; align-items: center;",
-                                        div {
-                                            class: "detail-box",
-                                            p { "Image Indexing" }
-                                        }
+                                style: "display: flex; justify-content: center; align-items: center;",
+                                input {
+                                    placeholder: "/path/to/directory",
+                                    value: "{input_value}",
+                                    oninput: move |event| {
+                                        let input = &event.value;
+                                        input_value.set(input.to_string());
                                     }
                                 }
+                            }
+                        }
+                        div {
+                            class: "col-12",
+                            div {
+                                style: "display: flex; justify-content: center; align-items: center;",
                                 div {
-                                    class: "col-md-12",
-                                    div {
-                                        style: "display: flex; justify-content: center; align-items: center;",
-                                        input {
-                                            placeholder: "/path/to/directory",
-                                            value: "{input_value}",
-                                            oninput: move |event| {
-                                                let input = &event.value;
-                                                input_value.set(input.to_string());
-                                            }
-                                        }
-                                    }
-                                }
-                                div {
-                                    class: "col-md-12",
-                                    div {
-                                        class: "detail-box",
-                                        style: "display: flex; justify-content: center; align-items: center;",
-
-                                        div {
-                                            class: "btn-box",
-                                            a {
-                                                class: "btn-3",
-                                                onclick: move |_| {
-                                                    let dir = input_value.get().clone().replace("\\", "/");
-                                                    let app_clone = app.clone();
-                                                    tokio::spawn(async move {
-                                                        index_images(dir, app_clone).await;
-                                                    });
-                                                },
-                                                "Find Photo"
-                                            }
-                                        }
-                                    }
+                                    class: "menu-btn1",
+                                    onclick: move |_| {
+                                        let dir = input_value.get().clone().replace("\\", "/");
+                                        let app_clone = app.clone();
+                                        tokio::spawn(async move {
+                                            index_images(dir, app_clone).await;
+                                        });
+                                    },
+                                    "Index Photos"
                                 }
                             }
                         }
                     }
                 }
             }
-            // div {
-            //     h1 { "Image index window" }
-            //     input {
-            //         value: "{input_value}",
-            //         oninput: move |event| {
-            //             let input = &event.value;
-            //             input_value.set(input.to_string());
-            //         }
-            //     }
-            //     button {
-            //         onclick: move |_| {
-            //             let dir = input_value.get().clone();
-            //             let app_clone = app.clone();
-            //             tokio::spawn(async move {
-            //                 index_images(dir, app_clone).await;
-            //             });
-            //         },
-            //         "Индексировать директорию"
-            //     }
-            // }
         })
     }
 }

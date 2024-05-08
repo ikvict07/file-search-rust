@@ -40,7 +40,7 @@ pub fn enable_image_search(app: Arc<Mutex<App>>) {
     {
         let app = app.lock().unwrap();
         let mut embeddings = app.embeddings.lock().unwrap();
-        embeddings.get_embeddings(r"C:\Users\ikvict\RustroverProjects\file-search\glove.6B.300d.txt");
+        embeddings.get_embeddings(r"./glove.6B.300d.txt");
         print!("Embeddings initialized\n");
     }
     {
@@ -56,7 +56,7 @@ pub fn enable_image_search(app: Arc<Mutex<App>>) {
 }
 pub fn initialize_map() -> Arc<Mutex<HashMap<ArcStr, HashSet<ArcStr>>>> {
     let mut map: HashMap<ArcStr, HashSet<ArcStr>> = HashMap::new();
-    if let Ok(file) = File::open("map.bin") {
+    if let Ok(file) = File::open("./map.bin") {
         let reader = BufReader::new(file);
         map = bincode::deserialize_from(reader).expect("Unable to deserialize map");
         println!("Map loaded");
