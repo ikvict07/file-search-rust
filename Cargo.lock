@@ -1253,6 +1253,7 @@ dependencies = [
  "dioxus",
  "dioxus-desktop",
  "file_system",
+ "image 0.25.1",
  "manganis",
  "serde_json",
  "tokio",

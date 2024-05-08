@@ -1,7 +1,11 @@
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use dioxus::html::{link, section, style};
 use dioxus::prelude::*;
 use dioxus_desktop::{Config, LogicalSize, WindowBuilder};
+use dioxus_desktop::tao::platform::unix::WindowBuilderExtUnix;
+use dioxus_desktop::tao::window::Icon;
+use image::GenericImageView;
 use app_props::app::*;
 
 
@@ -20,15 +24,24 @@ enum ActiveWindow {
 async fn main() {
     let app_props = App::new();
     let app_props_arc = Arc::new(Mutex::new(app_props));
+
+
+    let img = image::open(&Path::new("logo.png")).unwrap();
+    let (width, height) = img.dimensions();
+    let rgba = img.to_rgba8().into_raw();
+    let icon = Icon::from_rgba(rgba, width, height).unwrap();
     dioxus_desktop::launch_with_props(
         app,
         app_props_arc.clone(),
         Config::default().with_window(
             WindowBuilder::new()
+                .with_window_icon(Some(icon))
                 .with_title("File Search")
-                .with_resizable(false)
-                .with_inner_size(LogicalSize::new(800, 544)),
-        )
+                .with_resizable(true)
+                .with_inner_size(LogicalSize::new(800, 544))
+                .with_transparent(true)
+                .with_rgba_visual(true),
+        ),
     );
 
     if let Ok(app_props_guard) = app_props_arc.lock() {
@@ -45,83 +58,58 @@ pub fn app(cx: Scope<Arc<Mutex<App>>>) -> Element {
 
     cx.render(rsx! {
         head {
-            link { rel: "stylesheet", r#type: "text/css", href: "css/bootstrap.css" }
+            link { rel: "stylesheet", r#type: "text/css", href: "css2/bootstrap.css" }
             link { rel: "stylesheet", href: "https://fonts.googleapis.com/css?family=Poppins:400,700&display=swap" }
-            link { rel: "stylesheet", href: "css/style.css" }
-            link { rel: "stylesheet", href: "css/responsive.css" }
+            link { rel: "stylesheet", href: "css2/styles.css" }
+            // link { rel: "stylesheet", href: "css/responsive.css" }
         }
         body {
-            class: "sub_page",
             div {
-                class: "hero_area",
-                style: "display: flex; justify-content: center; align-items: center;",
-                header {
-                    class: "header_section",
+                class: "container",
+                div {
+                    class: "row",
                     div {
-                        class: "container-fluid",
-                        nav {
-                            class: "navbar navbar-expand-lg custom_nav-container",
-                            
-                        }
-
+                        class: "col-1 d-flex justify-content-center align-items-center "
                     }
-                }
-                section {
-                    class: "experience_section layout_padding",
                     div {
-                        class: "container",
+                        class: "col-2 d-flex justify-content-center align-items-center",
                         div {
-                            class: "row",
-                            div {
-                                class: "col-md-12",
-
-                                div {
-                                    class: "detail-box",
-                                    div {
-                                        class: "btn-box",
-                                        a {
-                                           // style: "margin-right: 10px;",
-                                            class: "btn-0",
-                                            onclick: move |_| active_window.set(ActiveWindow::StartWindow), "Start Window"
-                                        }
-                                        a {
-                                           // style: "margin-right: 10px;",
-
-                                            class: "btn-0",
-                                            onclick: move |_| active_window.set(ActiveWindow::FileSearch), "File Search"
-                                        }
-                                        a {
-                                          //  style: "margin-right: 10px;",
-
-                                            class: "btn-0",
-                                            onclick: move |_| active_window.set(ActiveWindow::FileIndex), "File Index"
-                                        }
-                                        a {
-                                           // style: "margin-right: 10px;",
-
-                                            class: "btn-0",
-                                            onclick: move |_| active_window.set(ActiveWindow::ImageSearch), "Image Search"
-                                        }
-                                        a {
-                                            class: "btn-0",
-                                            onclick: move |_| active_window.set(ActiveWindow::ImageIndex), "Image Index"
-                                        }
-                                    }
-                                }
-                            }
-
+                            class: "menu-btn",
+                            onclick: move |_| active_window.set(ActiveWindow::StartWindow), "Start Window"
                         }
                     }
+                    div {
+                        class: "col-2 d-flex justify-content-center align-items-center",
+                        div {
+                            class: "menu-btn",
+                            onclick: move |_| active_window.set(ActiveWindow::FileSearch), "File Search"
+                        }
+                    }
+                    div {
+                        class: "col-2 d-flex justify-content-center align-items-center",
+                        div {
+                            class: "menu-btn",
+                            onclick: move |_| active_window.set(ActiveWindow::FileIndex), "File Index"
+                        }
+                    }
+                    div {
+                        class: "col-2 d-flex justify-content-center align-items-center",
+                        div {
+                            class: "menu-btn",
+                            onclick: move |_| active_window.set(ActiveWindow::ImageSearch), "Image Search"
+                        }
+                    }
+                    div {
+                        class: "col-2 d-flex justify-content-center align-items-center",
+                        div {
+                            class: "menu-btn",
+                            onclick: move |_| active_window.set(ActiveWindow::ImageIndex), "Image Index"
+                        }
+                    }
+                    div {
+                        class: "col-1 d-flex justify-content-center align-items-center "
+                    }
                 }
-            }
-            script {
-                src: "js/jquery-3.4.1.min.js"
-            }
-            script {
-                src: "js/bootstrap.js"
-            }
-            script {
-                src: "js/custom.js"
             }
             match *active_window.get() {
                 ActiveWindow::StartWindow => rsx! { start_window(cx) },
@@ -137,42 +125,24 @@ pub fn app(cx: Scope<Arc<Mutex<App>>>) -> Element {
 fn start_window(cx: Scope<Arc<Mutex<App>>>) -> Element {
     cx.render(rsx! {
         div {
-            class: "hero_area",
-            style: "display: flex; justify-content: center; align-items: center;",
-            section {
-                class: "experience_section layout_padding-top layout_padding2-bottom",
+            class: "container centered",
+            div {
+                class: "row",
                 div {
-                    class: "container",
+                    class: "col-md-6 d-flex justify-content-center align-items-center",
                     div {
-                        class: "row",
-                        div {
-                            class: "col-md-12",
-                            div {
-                                class: "detail-box",
-                                div {
-                                    class: "btn-box",
-
-                                    a {
-                                        class: "btn-3",
-                                        onclick: move |_| { enable_prefix_search(cx.props); }, "Enable Prefix Search"
-                                    }
-                                    a {
-                                        class: "btn-3",
-                                        onclick: move |_| { enable_image_search(cx.props.clone()); }, "Enable Image Search"
-                                    }
-                                }
-                            }
-
-                        }
-
+                        class: "menu-btn1",
+                        onclick: move |_| { enable_prefix_search(cx.props); }, "Enable Prefix Search"
+                    }
+                }
+                div {
+                    class: "col-md-6 d-flex justify-content-center align-items-center",
+                    div {
+                        class: "menu-btn1",
+                        onclick: move |_| { enable_image_search(cx.props.clone()); }, "Enable Image Search"
                     }
                 }
             }
         }
-        // div {
-        //     h1 { "Start Window" }
-        //     button { onclick: move |_| { enable_prefix_search(cx.props); }, "Enable prefix search" }
-        //     button { onclick: move |_| { enable_image_search(cx.props.clone()); }, "Enable image search" }
-        // }
     })
 }

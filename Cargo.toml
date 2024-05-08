@@ -20,5 +20,6 @@ tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
 manganis = "0.2.2"
 ui_facade = { path = "src/ui_facade" }
 app_props = { path = "src/app_props" }
+image = "0.25.1"
 
 
