@@ -1,7 +1,5 @@
 body {
-    background: rgba(40, 42, 54, 0.5);
-    height: 100%;
-    min-height: 100%;
+    background: rgba(40, 42, 53, 0.5);
 }
 
 .row .col-12 {
@@ -97,3 +95,17 @@ p {
     font-size: 20px;
 }
 
+div * {
+    background: rgba(189, 70, 255, 0);
+}
+
+input {
+    color: #40da68;
+    outline: none;
+    border-right: none;
+    border-top: none;
+    border-left: none;
+    border-bottom-color: #ff79c6;
+    border-bottom-width: 3px;
+    margin-bottom: 20px;
+}
