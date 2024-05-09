@@ -649,7 +649,7 @@ pub async fn index_images<'a>(dir: String, app: Arc<Mutex<App>>) {
 
 
             limiter.until_ready().await;
-
+            println!("indexing{}", path_clone);
             let results = get_response_by_path(&path_clone).await;
 
 

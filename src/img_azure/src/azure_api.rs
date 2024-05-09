@@ -33,16 +33,16 @@ impl AzureRequest {
         }
     }
 
-    pub async fn send_request(&self) -> Result<Response, Box<dyn std::error::Error>> {
+    pub async fn send_request(&self) -> Result<Response, reqwest::Error> {
         let response = self.client.post(&self.request_adress)
             .headers(self.headers.clone())
             .body(self.img.clone())
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(35))
             .send()
             .await;
         match response {
             Ok(response) => Ok(response),
-            Err(e) => Err(Box::new(e)),
+            Err(e) => Err(e),
         }
     }
 }

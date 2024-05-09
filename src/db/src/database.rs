@@ -11,7 +11,7 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Result<Database, rusqlite::Error> {
-        let connection = Connection::open("database.db").expect("Connection::open");
+        let connection = Connection::open("./database.db").expect("Connection::open");
 
         match connection
             .execute(
