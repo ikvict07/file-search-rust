@@ -46,7 +46,6 @@ mod config {
             .with_resizable(true)
             .with_inner_size(LogicalSize::new(800, 544))
             .with_transparent(true)
-            .with_rgba_visual(true)
     }
 }
 
@@ -62,7 +61,6 @@ mod config {
             .with_resizable(true)
             .with_inner_size(LogicalSize::new(800, 544))
             .with_transparent(true)
-            .with_rgba_visual(true)
     }
 }
 
