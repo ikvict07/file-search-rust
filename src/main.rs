@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 use dioxus::html::{link, section, style};
 use dioxus::prelude::*;
 use dioxus_desktop::{Config, LogicalSize, WindowBuilder};
-use dioxus_desktop::tao::platform::unix::WindowBuilderExtUnix;
 // use dioxus_desktop::tao::platform::unix::WindowBuilderExtUnix;
 use dioxus_desktop::tao::window::Icon;
 use image::GenericImageView;
