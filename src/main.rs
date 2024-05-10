@@ -4,6 +4,7 @@ use dioxus::html::{link, section, style};
 use dioxus::prelude::*;
 use dioxus_desktop::{Config, LogicalSize, WindowBuilder};
 use dioxus_desktop::tao::platform::unix::WindowBuilderExtUnix;
+// use dioxus_desktop::tao::platform::unix::WindowBuilderExtUnix;
 use dioxus_desktop::tao::window::Icon;
 use image::GenericImageView;
 use app_props::app::*;
@@ -20,6 +21,52 @@ enum ActiveWindow {
     ImageIndex,
 }
 
+#[cfg(target_os = "linux")]
+mod config {
+    use dioxus_desktop::tao::platform::unix::WindowBuilderExtUnix;
+    use dioxus_desktop::{LogicalSize, WindowBuilder};
+
+    pub fn configure(builder: WindowBuilder) -> WindowBuilder {
+        builder
+            .with_title("File Search")
+            .with_resizable(true)
+            .with_inner_size(LogicalSize::new(800, 544))
+            .with_transparent(true)
+            .with_rgba_visual(true)
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod config {
+    use dioxus_desktop::{LogicalSize, WindowBuilder};
+    use dioxus_desktop::tao::platform::windows::WindowBuilderExtWindows;
+
+    pub fn configure(builder: WindowBuilder) -> WindowBuilder {
+        builder
+            .with_title("File Search")
+            .with_resizable(true)
+            .with_inner_size(LogicalSize::new(800, 544))
+            .with_transparent(true)
+            .with_rgba_visual(true)
+    }
+}
+
+
+#[cfg(target_os = "macos")]
+mod config {
+    use dioxus_desktop::{LogicalSize, WindowBuilder};
+    use dioxus_desktop::tao::platform::macos::WindowBuilderExtMacOS;
+
+    pub fn configure(builder: WindowBuilder) -> WindowBuilder {
+        builder
+            .with_title("File Search")
+            .with_resizable(true)
+            .with_inner_size(LogicalSize::new(800, 544))
+            .with_transparent(true)
+            .with_rgba_visual(true)
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let app_props = App::new();
@@ -30,17 +77,12 @@ async fn main() {
     let (width, height) = img.dimensions();
     let rgba = img.to_rgba8().into_raw();
     let icon = Icon::from_rgba(rgba, width, height).unwrap();
+    let conf = WindowBuilder::new();
     dioxus_desktop::launch_with_props(
         app,
         app_props_arc.clone(),
         Config::default().with_window(
-            WindowBuilder::new()
-                .with_window_icon(Some(icon))
-                .with_title("File Search")
-                .with_resizable(true)
-                .with_inner_size(LogicalSize::new(800, 544))
-                .with_transparent(true)
-                .with_rgba_visual(true),
+            config::configure(conf).with_window_icon(Option::from(icon))
         ),
     );
 

@@ -19,6 +19,16 @@ In response to this, we propose the creation of our own search system, based on 
     We generate captions for every image in the directory and save them in a database.
 - **${\color{lime}Image Search}$** User can search for images based on the caption of the image.
 
+
+### HOW TO USE
+
+- Download project using git clone
+- cd to the directory
+- **GOTO https://www.kaggle.com/datasets/thanakomsn/glove6b300dtxt** and download ```glove.6B.300d.txt```
+- copy this txt to the project dir
+- `cargo run --release ` to run app
+
+
 ### Libs
 - serde
 - bincode
